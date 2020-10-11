@@ -52,20 +52,20 @@ var message = {
     Batch: false,
     Version: EXTENSION_VERSION
 };
-var requestList = [{
-    cookies: '',
-    postData: '',
-    id: ''
-}, {
-    cookies: '',
-    postData: '',
-    id: ''
-}, {
-    cookies: '',
-    postData: '',
-    id: ''
-}
-];
+// var requestList = [{
+//     cookies: '',
+//     postData: '',
+//     id: ''
+// }, {
+//     cookies: '',
+//     postData: '',
+//     id: ''
+// }, {
+//     cookies: '',
+//     postData: '',
+//     id: ''
+// }
+// ];
 function start() {
     initialize();
     readStorage();
@@ -296,59 +296,59 @@ function setDownloadHooks() {
             'url': extractRootURL(link_url)
         }, parseCookies);
     })
-    current_browser.webRequest.onBeforeRequest.addListener(function (details) {
-        ///???????
-        /*         console.log(details.method);
-                console.log(details.requestBody);
-                console.log(details.requestBody.formData);
-                 if (details.method === 'POST') {
-                    message.PostData = postParams(details.requestBody.formData);
-                }   */
-        return {
-            requestHeaders: details.requestHeaders
-        };
-    }, {
-        urls: [
-            '<all_urls>'
-        ],
-        types: [
-            'main_frame',
-            'sub_frame'
-        ]
-    }, [
-        'blocking',
-        'requestBody'
-    ]);
-    current_browser.webRequest.onBeforeSendHeaders.addListener(function (details) {
-        ///?????????????????????
-        // currRequest++;
-        // if (currRequest > 2)
-        //     currRequest = 2;
-        // requestList[currRequest].id = details.requestId;
-        // message.UserAgent = navigator.userAgent;
-        // for (let i = 0; i < details.requestHeaders.length; ++i) {
-        //     if (details.requestHeaders[i].name.toLowerCase() === 'referer') {
-        //         requestList[currRequest].referrer = details.requestHeaders[i].value;
-        //     } else if (details.requestHeaders[i].name.toLowerCase() === 'cookie') {
-        //         requestList[currRequest].cookies = details.requestHeaders[i].value;
-        //     }
-        // }
-        return {
-            requestHeaders: details.requestHeaders
-        };
-    }, {
-        urls: [
-            '<all_urls>'
-        ],
-        types: [
-            'main_frame',
-            'sub_frame',
-            'xmlhttprequest'
-        ]
-    }, [
-        'blocking',
-        'requestHeaders'
-    ]);
+    /*  current_browser.webRequest.onBeforeRequest.addListener(function (details) {
+          ///???????
+  //                 console.log(details.method);
+  //                 console.log(details.requestBody);
+  //                 console.log(details.requestBody.formData);
+  //                  if (details.method === 'POST') {
+  //                     message.PostData = postParams(details.requestBody.formData);
+  //                 }   
+          return {
+              requestHeaders: details.requestHeaders
+          };
+      }, {
+          urls: [
+              '<all_urls>'
+          ],
+          types: [
+              'main_frame',
+              'sub_frame'
+          ]
+      }, [
+          'blocking',
+          'requestBody'
+      ]);
+       current_browser.webRequest.onBeforeSendHeaders.addListener(function (details) {
+          ///?????????????????????
+          // currRequest++;
+          // if (currRequest > 2)
+          //     currRequest = 2;
+          // requestList[currRequest].id = details.requestId;
+          // message.UserAgent = navigator.userAgent;
+          // for (let i = 0; i < details.requestHeaders.length; ++i) {
+          //     if (details.requestHeaders[i].name.toLowerCase() === 'referer') {
+          //         requestList[currRequest].referrer = details.requestHeaders[i].value;
+          //     } else if (details.requestHeaders[i].name.toLowerCase() === 'cookie') {
+          //         requestList[currRequest].cookies = details.requestHeaders[i].value;
+          //     }
+          // }
+          return {
+              requestHeaders: details.requestHeaders
+          };
+      }, {
+          urls: [
+              '<all_urls>'
+          ],
+          types: [
+              'main_frame',
+              'sub_frame',
+              'xmlhttprequest'
+          ]
+      }, [
+          'blocking',
+          'requestHeaders'
+      ]); */
     current_browser.webRequest.onHeadersReceived.addListener(function (details) {
         if (ugetIntegratorNotFound) { // uget-integrator not installed
             return {
@@ -371,7 +371,6 @@ function setDownloadHooks() {
         let ContentType = details.responseHeaders.find(({ name }) => name.toLowerCase() === 'content-type').value;
         //message.FileName = '';
         //debugger;
-
         //let ContentDisposition = details.responseHeaders.find(({ name }) => name === 'content-disposition').value;
         // console.log(details.responseHeaders.lastIndexOf(({ name }) => name.toLowerCase() === 'content-tye'));
         // console.log(details.responseHeaders.find(({ name }) => name.toLowerCase() === 'content-type'));
@@ -619,6 +618,7 @@ function clearMessage() {
     message.FileSize = '';
     message.Referer = '';
     message.UserAgent = navigator.userAgent;
+    message.PostData = '';
     message.Batch = false;
 }
 /**
