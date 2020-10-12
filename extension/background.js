@@ -22,10 +22,11 @@
 const EXTENSION_VERSION = "2.1.3";
 const REQUIRED_INTEGRATOR_VERSION = "1.0.0";
 //const MAX_FILE_SIZE = Number.MAX_SAFE_INTEGER;
-const UgetWlDefMIME = ["bin", "zip", "gz", "7z", "xz", "z", "tar", "tgz", "bz2", "lzh", "rar", "iso", "rpm",
+const WlDefaultMIME = ["bin", "zip", "gz", "7z", "xz", "z", "tar", "tgz", "bz2", "lzh", "rar", "iso", "rpm",
     "deb", "exe", "msi", "apk", "3gp", "aac", "flac", "m4a", "m4p", "mp3", "ogg", "wav", "wma", "mp4", "mkv",
     "webm", "ogv", "avi", "mov", "wmv", "flv", "f4v", "mpg", "mpeg", "rmvb"];
-const UgetBlDefMIME = ["xml", "text", "rss", "json", "html", "javascript", "torrent", "x-bittorrent", "webp"];
+const BlDefaultMIME = ["xml", "text", "rss", "json", "html", "javascript", "torrent", "x-bittorrent", "webp"];
+const BlDefaultURL = ["googleusercontent.com", "docs.google.com", "live.com"]
 var interruptDownloadOne = true;
 var ugetIntegratorNotFound = true;
 var hostName;
@@ -121,11 +122,12 @@ function readStorage() {
     current_browser.storage.sync.get(function (items) {
         // Read the storage for excluded keywords
         if (items["uget-urls-exclude"]) {
-            urlsToSkip = items["uget-urls-exclude"].toLowerCase().split(/[\s,]+/).filter(item => item);
+            urlsToSkip = items["uget-urls-exclude"].toLowerCase().split(/[\s,]+/).filter(item => item).concat(BlDefaultURL);
         } else {
             current_browser.storage.sync.set({
                 "uget-urls-exclude": ''
             });
+            urlsToSkip = BlDefaultURL;
         }
         // Read the storage for included keywords
         if (items["uget-urls-include"]) {
@@ -136,22 +138,22 @@ function readStorage() {
             });
         }//Blacklist
         if (items["uget-mime-exclude"]) {
-            mimeToSkip = items["uget-mime-exclude"].toLowerCase().split(/[\s,]+/).filter(item => item).concat(UgetBlDefMIME);
+            mimeToSkip = items["uget-mime-exclude"].toLowerCase().split(/[\s,]+/).filter(item => item).concat(BlDefaultMIME);
         } else {
             current_browser.storage.sync.set({
                 "uget-mime-exclude": ''
             });
-            mimeToSkip = UgetBlDefMIME;
+            mimeToSkip = BlDefaultMIME;
         }
         // Read the storage for included keywords
         // Whitelist
         if (items["uget-mime-include"]) {
-            mimeToInterrupt = items["uget-mime-include"].toLowerCase().split(/[\s,]+/).filter(item => item).concat(UgetWlDefMIME);
+            mimeToInterrupt = items["uget-mime-include"].toLowerCase().split(/[\s,]+/).filter(item => item).concat(WlDefaultMIME);
         } else {
             current_browser.storage.sync.set({
                 "uget-mime-include": ''
             });
-            mimeToInterrupt = UgetWlDefMIME;
+            mimeToInterrupt = WlDefaultMIME;
         }
         // Read the storage for the minimum file-size to interrupt
         if (items["uget-min-file-size"]) {
@@ -693,9 +695,9 @@ function parseCookies(cookies_arr) {
  */
 function updateExcludeKeywords(exclude) {
     if (exclude === "") {
-        urlsToSkip = [];
+        urlsToSkip = BlDefaultURL;
     } else {
-        urlsToSkip = exclude.split(/[\s,]+/);
+        urlsToSkip = exclude.split(/[\s,]+/).concat(BlDefaultURL)
     }
     current_browser.storage.sync.set({
         "uget-urls-exclude": exclude
@@ -721,9 +723,9 @@ function updateIncludeKeywords(include) {
  */
 function updateExcludeMIMEs(exclude) {
     if (exclude === "") {
-        mimeToSkip = UgetBlDefMIME;
+        mimeToSkip = BlDefaultMIME;
     } else {
-        mimeToSkip = exclude.split(/[\s,]+/).concat(UgetBlDefMIME);
+        mimeToSkip = exclude.split(/[\s,]+/).concat(BlDefaultMIME);
     }
     current_browser.storage.sync.set({
         "uget-mime-exclude": exclude
@@ -735,9 +737,9 @@ function updateExcludeMIMEs(exclude) {
  */
 function updateIncludeMIMEs(include) {
     if (include === "") {
-        mimeToInterrupt = UgetWlDefMIME;
+        mimeToInterrupt = WlDefaultMIME;
     } else {
-        mimeToInterrupt = include.split(/[\s,]+/).concat(UgetWlDefMIME);
+        mimeToInterrupt = include.split(/[\s,]+/).concat(WlDefaultMIME);
     }
     current_browser.storage.sync.set({
         "uget-mime-include": include
@@ -757,22 +759,16 @@ function updateMinFileSize(size) {
  * Check whether not to interrupt the given url.
  */
 function isBlackListedURL(url) {
-    if (!url) {
-        return true;
-    }
     let blackListed = false;
-    // Test the URL
-    url = stripRootURL(url)
-    if (url.includes("docs.google.com") || url.includes("googleusercontent.com/docs")) { // Cannot download from Google Docs
-        blackListed = true;
-    } else {
+    try {
+        url = stripRootURL(url)
         for (let keyword of urlsToSkip) {
             if (url.includes(keyword)) {
                 blackListed = true;
                 break;
             }
         }
-    }
+    } catch (error) { blackListed = true; }
     return blackListed;
 }
 /**
@@ -809,22 +805,21 @@ function isBlackListedContent(extension, contype) {
  * Check whether to interrupt the given url or not.
  */
 function isWhiteListedURL(url) {
-    if (!url) {
-        return false;
-    }
     let whiteListed = false;
-    // Test the URL -- That's horrid. url.includes("video") matches video anywhere in the URL.
-    if (url.includes('/video')) {
-        whiteListed = true;
-    } else {
-        url = stripRootURL(url);
-        for (let keyword of urlsToInterrupt) {
-            if (url.includes(keyword)) {
-                whiteListed = true;
-                break;
+    try {
+        // Test the URL -- That's horrid. url.includes("video") matches video anywhere in the URL.
+        if (url.includes('/video')) {
+            whiteListed = true;
+        } else {
+            url = stripRootURL(url);
+            for (let keyword of urlsToInterrupt) {
+                if (url.includes(keyword)) {
+                    whiteListed = true;
+                    break;
+                }
             }
         }
-    }
+    } catch (error) { whiteListed = false; }
     return whiteListed;
 }
 /**
