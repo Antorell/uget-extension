@@ -21,8 +21,11 @@
 /*  The modifications work with Uget + Aria2. Uget+Curl untested. */
 const EXTENSION_VERSION = "2.1.3";
 const REQUIRED_INTEGRATOR_VERSION = "1.0.0";
-const MAX_FILE_SIZE = Number.MAX_SAFE_INTEGER;
-const defaultMIME = ["bin", "zip", "gz", "7z", "xz", "z", "tar", "tgz", "bz2", "lzh", "rar", "iso", "rpm", "deb", "exe", "msi", "apk", "3gp", "aac", "flac", "m4a", "m4p", "mp3", "ogg", "wav", "wma", "mp4", "mkv", "webm", "ogv", "avi", "mov", "wmv", "flv", "f4v", "mpg", "mpeg", "rmvb"];
+//const MAX_FILE_SIZE = Number.MAX_SAFE_INTEGER;
+const UgetWlDefMIME = ["bin", "zip", "gz", "7z", "xz", "z", "tar", "tgz", "bz2", "lzh", "rar", "iso", "rpm",
+    "deb", "exe", "msi", "apk", "3gp", "aac", "flac", "m4a", "m4p", "mp3", "ogg", "wav", "wma", "mp4", "mkv",
+    "webm", "ogv", "avi", "mov", "wmv", "flv", "f4v", "mpg", "mpeg", "rmvb"];
+const UgetBlDefMIME = ["xml", "text", "rss", "json", "html", "javascript", "torrent", "x-bittorrent", "webp"];
 var interruptDownloadOne = true;
 var ugetIntegratorNotFound = true;
 var hostName;
@@ -131,24 +134,24 @@ function readStorage() {
             current_browser.storage.sync.set({
                 "uget-urls-include": ''
             });
-        }
+        }//Blacklist
         if (items["uget-mime-exclude"]) {
-            mimeToSkip = items["uget-mime-exclude"].toLowerCase().split(/[\s,]+/).filter(item => item);
+            mimeToSkip = items["uget-mime-exclude"].toLowerCase().split(/[\s,]+/).filter(item => item).concat(UgetBlDefMIME);
         } else {
             current_browser.storage.sync.set({
                 "uget-mime-exclude": ''
             });
+            mimeToSkip = UgetBlDefMIME;
         }
         // Read the storage for included keywords
+        // Whitelist
         if (items["uget-mime-include"]) {
-            mimeToInterrupt = items["uget-mime-include"].toLowerCase().split(/[\s,]+/).filter(item => item).concat(defaultMIME);
-            // console.log(mimeToInterrupt);
-            //mimeToInterrupt;
+            mimeToInterrupt = items["uget-mime-include"].toLowerCase().split(/[\s,]+/).filter(item => item).concat(UgetWlDefMIME);
         } else {
             current_browser.storage.sync.set({
                 "uget-mime-include": ''
             });
-            mimeToInterrupt = defaultMIME;
+            mimeToInterrupt = UgetWlDefMIME;
         }
         // Read the storage for the minimum file-size to interrupt
         if (items["uget-min-file-size"]) {
@@ -273,19 +276,18 @@ function setDownloadHooks() {
             message.FileName = stripFileName(headResponse.get('content-disposition'));
         });
         let UfileExtension = stripExtension(link_url);
-        let Umime = downloadItem['mime'];
+        let ContentType = downloadItem['mime'];
         if (!link_url.match(/^(https?\:|ftp\:)/g)) {
             return;
         }
         // Do not interrupt blacklisted items
-        if (isBlackListedURL(link_url) || isBlackListedContent(UfileExtension) || isBlackListedContent(Umime)) {
+        if (isBlackListedURL(link_url) || isBlackListedContent(UfileExtension, ContentType)) {
             return;
             // Always interrupt whitelisted items
         } else if (message.FileSize < minFileSizeToInterrupt) {
             return;
-        }
-        if (isWhiteListedURL(link_url) || isWhiteListedContent(UfileExtension) || isWhiteListedContent(Umime)) {
-            //message.FileSize = MAX_FILE_SIZE;
+        } // Interrupt files based on UgetDefaultMIME, ignore files smaller than minFileSizeToInterrupt and blacklisted files.
+        if (isWhiteListedURL(link_url) || isWhiteListedContent(UfileExtension, ContentType)) {
             // Cancel the download
             current_browser.downloads.cancel(downloadItem.id);
             // Erase the download from list
@@ -386,7 +388,7 @@ function setDownloadHooks() {
             message.Referer = details.originUrl;
             let UfileExtension = stripExtension(details.url);
             // Do not interrupt blacklisted items
-            if (isBlackListedURL(details.url) || isBlackListedContent(UfileExtension) || isBlackListedContent(ContentType)) {
+            if (isBlackListedURL(details.url) || isBlackListedContent(UfileExtension, ContentType)) {
                 interruptDownloadTwo = false;
                 return {
                     responseHeaders: details.responseHeaders
@@ -398,7 +400,7 @@ function setDownloadHooks() {
                     responseHeaders: details.responseHeaders
                 };
             }
-            if (isWhiteListedURL(details.url) || isWhiteListedContent(UfileExtension) || isWhiteListedContent(ContentType)) {
+            if (isWhiteListedURL(details.url) || isWhiteListedContent(UfileExtension, ContentType)) {
                 interruptDownloadTwo = true;
             }
 
@@ -466,7 +468,7 @@ function setDownloadHooks() {
                 } else if (details.frameId === 0) {
                     current_browser.tabs.update(details.tabId, {
                         url: "javascript:"
-                    });
+                    });///?????
                     let responseHeaders = details.responseHeaders.filter(function (header) {
                         let name = header.name.toLowerCase();
                         return name !== 'content-type' &&
@@ -719,9 +721,9 @@ function updateIncludeKeywords(include) {
  */
 function updateExcludeMIMEs(exclude) {
     if (exclude === "") {
-        mimeToSkip = [];
+        mimeToSkip = UgetBlDefMIME;
     } else {
-        mimeToSkip = exclude.split(/[\s,]+/);
+        mimeToSkip = exclude.split(/[\s,]+/).concat(UgetBlDefMIME);
     }
     current_browser.storage.sync.set({
         "uget-mime-exclude": exclude
@@ -733,9 +735,9 @@ function updateExcludeMIMEs(exclude) {
  */
 function updateIncludeMIMEs(include) {
     if (include === "") {
-        mimeToInterrupt = defaultMIME;
+        mimeToInterrupt = UgetWlDefMIME;
     } else {
-        mimeToInterrupt = include.split(/[\s,]+/).concat(defaultMIME);
+        mimeToInterrupt = include.split(/[\s,]+/).concat(UgetWlDefMIME);
     }
     current_browser.storage.sync.set({
         "uget-mime-include": include
@@ -764,7 +766,7 @@ function isBlackListedURL(url) {
     if (url.includes("docs.google.com") || url.includes("googleusercontent.com/docs")) { // Cannot download from Google Docs
         blackListed = true;
     } else {
-        for (var keyword of urlsToSkip) {
+        for (let keyword of urlsToSkip) {
             if (url.includes(keyword)) {
                 blackListed = true;
                 break;
@@ -776,23 +778,31 @@ function isBlackListedURL(url) {
 /**
  * Check whether not to interrupt the given url.
  */
-function isBlackListedContent(blcontent) {
+// function isBlackListedContent(blcontent) {
+//     let blackListed = false;
+//     blcontent = blcontent.toLowerCase();
+//     if (blcontent) {
+//         for (let keyword of mimeToSkip) {
+//             if (blcontent.includes(keyword.toString())) {
+//                 blackListed = true;
+//                 break;
+//             }
+//         }
+//     }
+//     return blackListed;
+// }
+function isBlackListedContent(extension, contype) {
     let blackListed = false;
-    blcontent = blcontent.toLowerCase();
-    //mimeToSkip = mimeToSkip.filter(item => item);
-    // Test the content type
-    if (blcontent) {
-        if (/\b(?:xml|text|rss|json|html|javascript|torrent|x-bittorrent|webp)\b/.test(blcontent)) {
-            blackListed = true;
-        } else {
-            for (var keyword of mimeToSkip) {
-                if (blcontent.includes(keyword.toString())) {
+    try {
+        if (extension || contype) {
+            for (let keyword of mimeToSkip) {
+                if (extension.includes(keyword.toString()) || contype.includes(keyword.toString())) {
                     blackListed = true;
                     break;
                 }
             }
         }
-    }
+    } catch (error) { blackListed = false; }
     return blackListed;
 }
 /**
@@ -808,7 +818,7 @@ function isWhiteListedURL(url) {
         whiteListed = true;
     } else {
         url = stripRootURL(url);
-        for (var keyword of urlsToInterrupt) {
+        for (let keyword of urlsToInterrupt) {
             if (url.includes(keyword)) {
                 whiteListed = true;
                 break;
@@ -820,18 +830,32 @@ function isWhiteListedURL(url) {
 /**
  * Check whether to interrupt the given content or not.
  */
-function isWhiteListedContent(wlcontent) {
-    //debugger;
+// function isWhiteListedContent(wlcontent) {
+//     //debugger;
+//     let whiteListed = false;
+//     wlcontent = wlcontent.toLowerCase();
+//     if (wlcontent) {
+//         for (let keyword of mimeToInterrupt) {
+//             if (wlcontent.includes(keyword.toString())) {
+//                 whiteListed = true;
+//                 break;
+//             }
+//         }
+//     }
+//     return whiteListed;
+// }
+function isWhiteListedContent(extension, contype) {
     let whiteListed = false;
-    wlcontent = wlcontent.toLowerCase();
-    if (wlcontent) {
-        for (var keyword of mimeToInterrupt) {
-            if (wlcontent.includes(keyword.toString())) {
-                whiteListed = true;
-                break;
+    try {
+        if (extension || contype) {
+            for (let keyword of mimeToInterrupt) {
+                if (extension.includes(keyword.toString()) || contype.includes(keyword.toString())) {
+                    whiteListed = true;
+                    break;
+                }
             }
         }
-    }
+    } catch (error) { whiteListed = false; }
     return whiteListed;
 }
 /**
