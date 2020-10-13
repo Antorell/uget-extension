@@ -17,8 +17,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-/*  The modifications work with Uget + Aria2. Uget+Curl untested. */
+/*                                                                                      */
+/*  The modifications work with Firefox + Uget + Aria2. Uget+Curl, or Chrome, untested. */
+/*                                                                                      */
 const EXTENSION_VERSION = "2.1.3";
 const REQUIRED_INTEGRATOR_VERSION = "1.0.0";
 //const MAX_FILE_SIZE = Number.MAX_SAFE_INTEGER;
@@ -311,7 +312,6 @@ function setDownloadHooks() {
         } else {
             return;
         }
-
     })
     /*  current_browser.webRequest.onBeforeRequest.addListener(function (details) {
           ///???????
@@ -593,7 +593,6 @@ function enableVideoGrabber() {
  * Send message to uget-integrator
  */
 function sendMessageToHost(message) {
-
     current_browser.runtime.sendNativeMessage(hostName, message, function (response) {
         clearMessage();
         ugetIntegratorNotFound = (response == null);
@@ -631,7 +630,6 @@ function clearMessage() {
 }
 /**
  * Extract the POST parameters from a form data.
-
 function postParams(source) {
     let array = [];
     for (let key in source) {
@@ -643,7 +641,6 @@ function postParams(source) {
  * Get the file size of given URL.
  * @param {string} url
  */
-
 function stripFileName(content) {
     let FileName = '';
     if (content != null) {
@@ -680,7 +677,6 @@ function cookiesGetAll(url) {
         'url': stripRootURL(url)
     }, parseCookies);
 }
-
 function parseCookies(cookies_arr) {
     let cookies = '';
     for (let i in cookies_arr) {
@@ -844,15 +840,15 @@ function setInterruptDownload(interrupt, writeToStorage) {
  */
 function changeIcon() {
     let state = getState();
-    iconPath = "./icon_32.png";
+    iconPath = "./icons/icon_32.png";
     if (state == 0 && !interruptDownloadOne) {
-        iconPath = "./icon_disabled_32.png";
+        iconPath = "./icons/icon_disabled_32.png";
     } else if (state == 1) {
         // Warning
-        iconPath = "./icon_warning_32.png";
+        iconPath = "./icons/icon_warning_32.png";
     } else if (state == 2) {
         // Error
-        iconPath = "./icon_error_32.png";
+        iconPath = "./icons/icon_error_32.png";
     }
     current_browser.browserAction.setIcon({
         path: iconPath
