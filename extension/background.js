@@ -26,7 +26,8 @@ const WlDefaultMIME = ["bin", "zip", "gz", "7z", "xz", "z", "tar", "tgz", "bz2",
     "deb", "exe", "msi", "apk", "3gp", "aac", "flac", "m4a", "m4p", "mp3", "ogg", "wav", "wma", "mp4", "mkv",
     "webm", "ogv", "avi", "mov", "wmv", "flv", "f4v", "mpg", "mpeg", "rmvb"];
 const BlDefaultMIME = ["xml", "text", "rss", "json", "html", "javascript", "torrent", "x-bittorrent", "webp"];
-const BlDefaultURL = ["googleusercontent.com", "docs.google.com", "live.com"]
+const BlDefaultURL = ["googleusercontent.com", "docs.google.com"];
+// const WlDefaultURL = [];
 var interruptDownloadOne = true;
 var ugetIntegratorNotFound = true;
 var hostName;
@@ -83,11 +84,11 @@ function start() {
  */
 function initialize() {
     // Get the running browser
-    try {
-        chromeVersion = /Chrome\/([0-9]+)/.exec(navigator.userAgent)[1];
-    } catch (ex) {
-        chromeVersion = 33;
-    }
+    // try {
+    //     chromeVersion = /Chrome\/([0-9]+)/.exec(navigator.userAgent)[1];
+    // } catch (ex) {
+    //     chromeVersion = 33;
+    // }
     try {
         current_browser = browser;
         hostName = 'com.ugetdm.firefox';
@@ -96,11 +97,15 @@ function initialize() {
                 if (info.name === 'Firefox') {
                     // Convert version string to int
                     firefoxVersion = parseInt(info.version.replace(/[ab]\d+/, '').split('.')[0]);
+                    chromeVersion = 33;
                 }
             });
     } catch (ex) {
+        // untested
         firefoxVersion = 0;
         current_browser = chrome;
+        chromeVersion = /Chrome\/([0-9]+)/.exec(navigator.userAgent)[1];
+        chromeVersion = parseInt(chromeVersion);
         hostName = 'com.ugetdm.chrome';
     }
     // Set keyboard shortcut listener
@@ -110,7 +115,6 @@ function initialize() {
             setInterruptDownload(!interruptDownloadOne, true);
         }
     });
-    chromeVersion = parseInt(chromeVersion);
     sendMessageToHost(message);
     createContextMenus();
 }
@@ -200,6 +204,8 @@ function createContextMenus() {
         let page_url = info.pageUrl; //url of the current page, not the link.
         let link_url = info['linkUrl'];
         if (info.menuItemId === "download_with_uget") {
+            message.URL = link_url;
+            message.Referer = page_url;
             Promise.all([
                 fetch(link_url).then(response => response.headers)
             ]).then(([headResponse]) => {
@@ -209,8 +215,6 @@ function createContextMenus() {
                     'url': stripRootURL(link_url)
                 }, parseCookies);
             });
-            message.URL = link_url;
-            message.Referer = page_url;
         } else if (info.menuItemId === "download_all_links_with_uget") {
             current_browser.tabs.executeScript(null, {
                 file: 'extract.js'
@@ -264,13 +268,19 @@ function createContextMenus() {
 function setDownloadHooks() {
     // Interrupt downloads on creation
     current_browser.downloads.onCreated.addListener(function (downloadItem) {
-        if (ugetIntegratorNotFound || !interruptDownloadOne) { // uget-integrator not installed
+        // uget-integrator not installed
+        if (ugetIntegratorNotFound || !interruptDownloadOne) {
             return;
         }
         if ("in_progress" !== downloadItem['state'].toString().toLowerCase()) {
             return;
         }
         let link_url = downloadItem['url'] || downloadItem['finalUrl'];
+        ///
+        if (!link_url.match(/^(https?\:|ftp\:)/g)) {
+            return;
+        }
+        ///
         Promise.all([
             fetch(link_url).then(response => response.headers)
         ]).then(([headResponse]) => {
@@ -279,9 +289,6 @@ function setDownloadHooks() {
         });
         let UfileExtension = stripExtension(link_url);
         let ContentType = downloadItem['mime'];
-        if (!link_url.match(/^(https?\:|ftp\:)/g)) {
-            return;
-        }
         // Do not interrupt blacklisted items
         if (isBlackListedURL(link_url) || isBlackListedContent(UfileExtension, ContentType)) {
             return;
@@ -375,8 +382,6 @@ function setDownloadHooks() {
                 responseHeaders: details.responseHeaders
             };
         }
-        //debugger;
-        //console.log(details.requestHeaders);
         let interruptDownloadTwo = false;
         let ContentType = details.responseHeaders.find(({ name }) => name.toLowerCase() === 'content-type').value;
         if (!ContentType.includes('text/html')) {
@@ -387,7 +392,6 @@ function setDownloadHooks() {
             }
             message.FileSize = parseInt(details.responseHeaders.find(({ name }) => name.toLowerCase() === 'content-length').value);
             message.URL = details.url;
-            message.Referer = details.originUrl;
             let UfileExtension = stripExtension(details.url);
             // Do not interrupt blacklisted items
             if (isBlackListedURL(details.url) || isBlackListedContent(UfileExtension, ContentType)) {
@@ -401,11 +405,10 @@ function setDownloadHooks() {
                 return {
                     responseHeaders: details.responseHeaders
                 };
-            }
-            if (isWhiteListedURL(details.url) || isWhiteListedContent(UfileExtension, ContentType)) {
+            } else if (isWhiteListedURL(details.url) || isWhiteListedContent(UfileExtension, ContentType)) {
                 interruptDownloadTwo = true;
             }
-
+            //console.log(message);
             ///TODO: Remove the loop.
             // for (let i = 0; i < details.responseHeaders.length; ++i) {
             //     if (details.responseHeaders[i].name.toLowerCase() == 'content-length') {
@@ -440,9 +443,11 @@ function setDownloadHooks() {
             //     }
             // }
             //}
+            /// filter?????
             if (interruptDownloadTwo && interruptDownloadOne) {
                 for (let i = 0; i < filter.length; i++) {
                     if (filter[i] != "" && ContentType.lastIndexOf(filter[i]) != -1) {
+                        console.log(filter[i]);
                         return {
                             responseHeaders: details.responseHeaders
                         };
@@ -459,6 +464,7 @@ function setDownloadHooks() {
                 if (details.method != "POST") {
                     message.PostData = '';
                 }
+                message.Referer = details.originUrl;
                 current_browser.cookies.getAll({
                     'url': stripRootURL(message.URL)
                 }, parseCookies);
@@ -587,6 +593,7 @@ function enableVideoGrabber() {
  * Send message to uget-integrator
  */
 function sendMessageToHost(message) {
+
     current_browser.runtime.sendNativeMessage(hostName, message, function (response) {
         clearMessage();
         ugetIntegratorNotFound = (response == null);
@@ -619,19 +626,19 @@ function clearMessage() {
     message.FileSize = '';
     message.Referer = '';
     message.UserAgent = navigator.userAgent;
-    message.PostData = '';
+    // message.PostData = '';
     message.Batch = false;
 }
 /**
  * Extract the POST parameters from a form data.
- */
+
 function postParams(source) {
     let array = [];
-    for (var key in source) {
+    for (let key in source) {
         array.push(encodeURIComponent(key) + '=' + encodeURIComponent(source[key]));
     }
     return array.join('&');
-}
+} */
 /**
  * Get the file size of given URL.
  * @param {string} url
@@ -771,22 +778,6 @@ function isBlackListedURL(url) {
     } catch (error) { blackListed = true; }
     return blackListed;
 }
-/**
- * Check whether not to interrupt the given url.
- */
-// function isBlackListedContent(blcontent) {
-//     let blackListed = false;
-//     blcontent = blcontent.toLowerCase();
-//     if (blcontent) {
-//         for (let keyword of mimeToSkip) {
-//             if (blcontent.includes(keyword.toString())) {
-//                 blackListed = true;
-//                 break;
-//             }
-//         }
-//     }
-//     return blackListed;
-// }
 function isBlackListedContent(extension, contype) {
     let blackListed = false;
     try {
@@ -808,37 +799,20 @@ function isWhiteListedURL(url) {
     let whiteListed = false;
     try {
         // Test the URL -- That's horrid. url.includes("video") matches video anywhere in the URL.
-        if (url.includes('/video')) {
-            whiteListed = true;
-        } else {
-            url = stripRootURL(url);
-            for (let keyword of urlsToInterrupt) {
-                if (url.includes(keyword)) {
-                    whiteListed = true;
-                    break;
-                }
+        // if (url.includes('/video')) {
+        //     whiteListed = true;
+        // } else {
+        url = stripRootURL(url);
+        for (let keyword of urlsToInterrupt) {
+            if (url.includes(keyword)) {
+                whiteListed = true;
+                break;
             }
         }
+        //}
     } catch (error) { whiteListed = false; }
     return whiteListed;
 }
-/**
- * Check whether to interrupt the given content or not.
- */
-// function isWhiteListedContent(wlcontent) {
-//     //debugger;
-//     let whiteListed = false;
-//     wlcontent = wlcontent.toLowerCase();
-//     if (wlcontent) {
-//         for (let keyword of mimeToInterrupt) {
-//             if (wlcontent.includes(keyword.toString())) {
-//                 whiteListed = true;
-//                 break;
-//             }
-//         }
-//     }
-//     return whiteListed;
-// }
 function isWhiteListedContent(extension, contype) {
     let whiteListed = false;
     try {
@@ -870,15 +844,15 @@ function setInterruptDownload(interrupt, writeToStorage) {
  */
 function changeIcon() {
     let state = getState();
-    iconPath = "./icon_32.png";
+    iconPath = "./icons/icon_32.png";
     if (state == 0 && !interruptDownloadOne) {
-        iconPath = "./icon_disabled_32.png";
+        iconPath = "./icons/icon_disabled_32.png";
     } else if (state == 1) {
         // Warning
-        iconPath = "./icon_warning_32.png";
+        iconPath = "./icons/icon_warning_32.png";
     } else if (state == 2) {
         // Error
-        iconPath = "./icon_error_32.png";
+        iconPath = "./icons/icon_error_32.png";
     }
     current_browser.browserAction.setIcon({
         path: iconPath
