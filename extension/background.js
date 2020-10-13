@@ -844,15 +844,15 @@ function setInterruptDownload(interrupt, writeToStorage) {
  */
 function changeIcon() {
     let state = getState();
-    iconPath = "./icons/icon_32.png";
+    iconPath = "./icon_32.png";
     if (state == 0 && !interruptDownloadOne) {
-        iconPath = "./icons/icon_disabled_32.png";
+        iconPath = "./icon_disabled_32.png";
     } else if (state == 1) {
         // Warning
-        iconPath = "./icons/icon_warning_32.png";
+        iconPath = "./icon_warning_32.png";
     } else if (state == 2) {
         // Error
-        iconPath = "./icons/icon_error_32.png";
+        iconPath = "./icon_error_32.png";
     }
     current_browser.browserAction.setIcon({
         path: iconPath
