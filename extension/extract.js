@@ -21,22 +21,26 @@
 extract();
 
 function extract() {
-    var txt = '';
-    urls = []
-    for (var i = 0; i < document.links.length; i++) {
-        url = document.links[i].href;
-        var valid = /^(ftp|http|https):\/\/[^ "]+$/.test(url);
-        if(valid) {
-            var decodedURL = unescape(url);
-            if(urls.indexOf(decodedURL) < 0) {
-                urls.push(decodedURL);
-                txt += url + '\n';
+    let txt = '';
+    let urls = [];
+    let url = '';
+    for (let i = 0; i < document.links.length; i++) {
+        if (document.links[i].href.match(/^(https?\:|ftp\:)/)) {
+            // if (!document.links[i].href.includes('.html')) {
+            if (document.links[i].href.split('/').pop().match(/^([^\^?^=^&])+(\.[a-zA-Z0-9]+)?$/)) {
+                url = decodeURI(document.links[i].href);
+            }
+            // }
+            if (urls.indexOf(url) < 0) {
+                urls.push(url);
             }
         }
     }
-    
-    if(txt !== '') {
-        return {success: true, urls: txt};
+    urls = urls.filter(item => item);
+    urls.forEach(item => txt += item + '\n');
+
+    if (txt !== '') {
+        return { success: true, urls: txt };
     }
-    return {success: false, urls: ""};
+    return { success: false, urls: "" };
 }
