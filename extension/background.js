@@ -88,7 +88,7 @@ function initialize() {
     // try {
     //     chromeVersion = /Chrome\/([0-9]+)/.exec(navigator.userAgent)[1];
     // } catch (ex) {
-    //     chromeVersion = 33;
+    //     chromeVersion = 33; // 33??
     // }
     try {
         current_browser = browser;
@@ -212,9 +212,10 @@ function createContextMenus() {
             ]).then(([headResponse]) => {
                 //message.FileSize = parseInt(headResponse.get('Content-Length'));
                 message.FileName = stripFileName(headResponse.get('content-disposition'));
-                current_browser.cookies.getAll({
-                    'url': stripRootURL(link_url)
-                }, parseCookies);
+                cookiesGetAll(link_url);
+                // current_browser.cookies.getAll({
+                //     'url': stripRootURL(link_url)
+                // }, parseCookies);
             });
         } else if (info.menuItemId === "download_all_links_with_uget") {
             current_browser.tabs.executeScript(null, {
@@ -225,9 +226,10 @@ function createContextMenus() {
                     message.URL = results[0].urls;
                     message.Referer = page_url;
                     message.Batch = true;
-                    current_browser.cookies.getAll({
-                        'url': stripRootURL(page_url)
-                    }, parseCookies);
+                    cookiesGetAll(page_url);
+                    // current_browser.cookies.getAll({
+                    //     'url': stripRootURL(page_url)
+                    // }, parseCookies);
                 }
             });
         } else if (info.menuItemId === "download_media_with_uget") {
@@ -235,9 +237,10 @@ function createContextMenus() {
                 // Youtube
                 message.URL = page_url;
                 message.Referer = page_url;
-                current_browser.cookies.getAll({
-                    'url': stripRootURL(page_url)
-                }, parseCookies);
+                cookiesGetAll(page_url);
+                // current_browser.cookies.getAll({
+                //     'url': stripRootURL(page_url)
+                // }, parseCookies);
             } else {
                 // Other videos
                 var media_set = mediasInTab[tab['id']];
@@ -247,16 +250,18 @@ function createContextMenus() {
                     if (no_or_urls == 1) {
                         message.URL = urls[0];
                         message.Referer = page_url;
-                        current_browser.cookies.getAll({
-                            'url': stripRootURL(page_url)
-                        }, parseCookies);
+                        cookiesGetAll(page_url);
+                        // current_browser.cookies.getAll({
+                        //     'url': stripRootURL(page_url)
+                        // }, parseCookies);
                     } else if (no_or_urls > 1) {
                         message.URL = urls.join('\n');
                         message.Referer = page_url;
                         message.Batch = true;
-                        current_browser.cookies.getAll({
-                            'url': stripRootURL(page_url)
-                        }, parseCookies);
+                        cookiesGetAll(page_url);
+                        // current_browser.cookies.getAll({
+                        //     'url': stripRootURL(page_url)
+                        // }, parseCookies);
                     }
                 }
             }
@@ -291,13 +296,12 @@ function setDownloadHooks() {
         let UfileExtension = stripExtension(link_url);
         let ContentType = downloadItem['mime'];
         // Do not interrupt blacklisted items
-        if (isBlackListedURL(link_url) || isBlackListedContent(UfileExtension, ContentType)) {
+        if (isBlackListedURL(link_url) || isBlackListedContent(UfileExtension, ContentType) || message.FileSize < minFileSizeToInterrupt) {
             return;
-            // Always interrupt whitelisted items
-        } else if (message.FileSize < minFileSizeToInterrupt) {
-            return;
-        } // Interrupt files based on UgetDefaultMIME, ignore files smaller than minFileSizeToInterrupt and blacklisted files.
-        if (isWhiteListedURL(link_url) || isWhiteListedContent(UfileExtension, ContentType)) {
+            // } else if (message.FileSize < minFileSizeToInterrupt) {
+            //     return;
+            // } // Interrupt files based on UgetDefaultMIME, ignore files smaller than minFileSizeToInterrupt and blacklisted files.
+        } else if (isWhiteListedURL(link_url) || isWhiteListedContent(UfileExtension, ContentType)) {
             // Cancel the download
             current_browser.downloads.cancel(downloadItem.id);
             // Erase the download from list
@@ -306,9 +310,10 @@ function setDownloadHooks() {
             });
             message.URL = link_url;
             message.Referer = downloadItem['referrer'];
-            current_browser.cookies.getAll({
-                'url': stripRootURL(link_url)
-            }, parseCookies);
+            cookiesGetAll(link_url);
+            // current_browser.cookies.getAll({
+            //     'url': stripRootURL(link_url)
+            // }, parseCookies);
         } else {
             return;
         }
@@ -367,22 +372,28 @@ function setDownloadHooks() {
           'requestHeaders'
       ]); */
     current_browser.webRequest.onHeadersReceived.addListener(function (details) {
-        if (ugetIntegratorNotFound) { // uget-integrator not installed
-            return {
-                responseHeaders: details.responseHeaders
-            };
-        }
-        if (!details.statusLine.includes("200")) { // HTTP response is not OK
-            return {
-                responseHeaders: details.responseHeaders
-            };
-        }
-        if (isBlackListedURL(details.url)) {
-            return {
-                responseHeaders: details.responseHeaders
-            };
-        }
         let interruptDownloadTwo = false;
+        // uget-integrator not installed// HTTP response is not OK
+        if (ugetIntegratorNotFound || details.statusCode != 200 || isBlackListedURL(details.url)) {
+            return {
+                responseHeaders: details.responseHeaders
+            };
+        }
+        // if (ugetIntegratorNotFound) { // uget-integrator not installed
+        //     return {
+        //         responseHeaders: details.responseHeaders
+        //     };
+        // }
+        // if (details.statusCode != 200) { // HTTP response is not OK
+        //     return {
+        //         responseHeaders: details.responseHeaders
+        //     };
+        // }
+        // if (isBlackListedURL(details.url)) {
+        //     return {
+        //         responseHeaders: details.responseHeaders
+        //     };
+        // }
         let ContentType = details.responseHeaders.find(({ name }) => name.toLowerCase() === 'content-type').value;
         if (!ContentType.includes('text/html')) {
             try {
@@ -394,17 +405,17 @@ function setDownloadHooks() {
             message.URL = details.url;
             let UfileExtension = stripExtension(details.url);
             // Do not interrupt blacklisted items
-            if (isBlackListedURL(details.url) || isBlackListedContent(UfileExtension, ContentType)) {
+            if (/* isBlackListedURL(details.url) || */ isBlackListedContent(UfileExtension, ContentType) || message.FileSize < minFileSizeToInterrupt) {
                 interruptDownloadTwo = false;
                 return {
                     responseHeaders: details.responseHeaders
                 };
                 // Always interrupt whitelisted items
-            } else if (message.FileSize < minFileSizeToInterrupt) {
-                interruptDownloadTwo = false;
-                return {
-                    responseHeaders: details.responseHeaders
-                };
+                // } else if (message.FileSize < minFileSizeToInterrupt) {
+                //     interruptDownloadTwo = false;
+                //     return {
+                //         responseHeaders: details.responseHeaders
+                //     };
             } else if (isWhiteListedURL(details.url) || isWhiteListedContent(UfileExtension, ContentType)) {
                 interruptDownloadTwo = true;
             }
@@ -465,9 +476,10 @@ function setDownloadHooks() {
                     message.PostData = '';
                 }
                 message.Referer = details.originUrl;
-                current_browser.cookies.getAll({
-                    'url': stripRootURL(message.URL)
-                }, parseCookies);
+                cookiesGetAll(message.URL);
+                // current_browser.cookies.getAll({
+                //     'url': stripRootURL(message.URL)
+                // }, parseCookies);
                 //let scheme = /^https/.test(details.url) ? 'https' : 'http'; //???????
                 if (chromeVersion >= 35 || firefoxVersion >= 51) {
                     return {
@@ -625,11 +637,12 @@ function clearMessage() {
     message.FileSize = '';
     message.Referer = '';
     message.UserAgent = navigator.userAgent;
-    // message.PostData = '';
+    message.PostData = '';
     message.Batch = false;
 }
 /**
  * Extract the POST parameters from a form data.
+ // To do what????
 function postParams(source) {
     let array = [];
     for (let key in source) {
@@ -848,7 +861,7 @@ function changeIcon() {
         iconPath = "./icon_warning_32.png";
     } else if (state == 2) {
         // Error
-        iconPath = "./icons/icon_error_32.png";
+        iconPath = "./icon_error_32.png";
     }
     current_browser.browserAction.setIcon({
         path: iconPath
