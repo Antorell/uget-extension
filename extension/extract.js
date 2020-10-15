@@ -37,7 +37,8 @@ function extract() {
         }
     }
     urls = urls.filter(item => item);
-    urls.forEach(item => txt += item + '\n');
+    //urls.forEach(item => txt += item + '\n');
+    txt = urls.join('\n');
 
     if (txt !== '') {
         return { success: true, urls: txt };
