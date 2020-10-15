@@ -475,7 +475,9 @@ function setDownloadHooks() {
                 if (details.method != "POST") {
                     message.PostData = '';
                 }
-                message.Referer = details.originUrl;
+                if (details.originUrl) {
+                    message.Referer = details.originUrl;
+                }
                 cookiesGetAll(message.URL);
                 // current_browser.cookies.getAll({
                 //     'url': stripRootURL(message.URL)
