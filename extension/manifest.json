@@ -2,7 +2,7 @@
     "applications": {
         "gecko": {
             "id": "uget-integration@slgobinath",
-            "strict_min_version": "52.0"
+            "strict_min_version": "57.0"
         }
     },
     "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnI/ECgghIqV+/wQ7b6N+m5tupHZlieWd6nbqqSoqmhUlFg3DmqOi2G/LpVhxoSGHnbRBnemoO2Hs+6aLnlpHKyJ1/DQUHwTjPnvGc9sjTvks1L1dKWTFGcJLiQZPMsjs5g1b8ZNQCH8nGE4uqeSzVK7Hey61gwsS5+OwZYw5/3C/HfBZNNzQfphm7j+eMTuXJTBowA3A3I2ywPRTSOt8n/CxZUIL9O44QOs/WiZFjtERnZocvbHmkWLproj1MIcJVJd0OI11VAfqYznuwsCTIe7annsBpWL1UJUNK+EwVW8Jpj4CUeauC5c0HUWdAecLyx01yKtfokBvwX5fldB1YQIDAQAB",
@@ -35,7 +35,7 @@
         "128": "icon_128.png"
     },
     "manifest_version": 2,
-    "minimum_chrome_version": "19.0",
+    "minimum_chrome_version": "47.0",
     "name": "uGet Integration",
     "short_name": "uGet",
     "permissions": [
