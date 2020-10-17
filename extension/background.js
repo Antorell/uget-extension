@@ -26,7 +26,7 @@ const REQUIRED_INTEGRATOR_VERSION = "1.0.0";
 const WlDefaultMIME = ["bin", "zip", "gz", "7z", "xz", "z", "tar", "tgz", "bz2", "lzh", "rar", "iso", "rpm",
     "deb", "exe", "msi", "apk", "3gp", "aac", "flac", "m4a", "m4p", "mp3", "ogg", "wav", "wma", "mp4", "mkv",
     "webm", "ogv", "avi", "mov", "wmv", "flv", "f4v", "mpg", "mpeg", "rmvb"];
-const BlDefaultMIME = ["xml", "text", "rss", "json", "html", "javascript", "torrent", "x-bittorrent", "webp"];
+const BlDefaultMIME = ["xml", "text", "rss", "json", "html", "javascript", "webp"];
 const BlDefaultURL = ["googleusercontent.com", "docs.google.com"];
 // const WlDefaultURL = [];
 var interruptDownloadOne = true;
