@@ -320,9 +320,6 @@ function setDownloadHooks() {
     })
     /*  current_browser.webRequest.onBeforeRequest.addListener(function (details) {
           ///???????
-  //                 console.log(details.method);
-  //                 console.log(details.requestBody);
-  //                 console.log(details.requestBody.formData);
   //                  if (details.method === 'POST') {
   //                     message.PostData = postParams(details.requestBody.formData);
   //                 }   
@@ -419,7 +416,6 @@ function setDownloadHooks() {
             } else if (isWhiteListedURL(details.url) || isWhiteListedContent(UfileExtension, ContentType)) {
                 interruptDownloadTwo = true;
             }
-            //console.log(message);
             ///TODO: Remove the loop.
             // for (let i = 0; i < details.responseHeaders.length; ++i) {
             //     if (details.responseHeaders[i].name.toLowerCase() == 'content-length') {
@@ -458,7 +454,6 @@ function setDownloadHooks() {
             if (interruptDownloadTwo && interruptDownloadOne) {
                 for (let i = 0; i < filter.length; i++) {
                     if (filter[i] != "" && ContentType.lastIndexOf(filter[i]) != -1) {
-                        console.log(filter[i]);
                         return {
                             responseHeaders: details.responseHeaders
                         };
