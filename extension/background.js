@@ -212,9 +212,9 @@ function createContextMenus() {
                 //message.FileSize = parseInt(headResponse.get('Content-Length'));
                 message.FileName = stripFileName(headResponse.get('content-disposition'));
                 cookiesGetAll(link_url);
-                // current_browser.cookies.getAll({
-                //     'url': stripRootURL(link_url)
-                // }, parseCookies);
+            }).catch((error) => {
+                message.FileName = '';
+                cookiesGetAll(link_url);
             });
         } else if (info.menuItemId === "download_all_links_with_uget") {
             current_browser.tabs.executeScript(null, {
