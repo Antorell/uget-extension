@@ -206,16 +206,7 @@ function createContextMenus() {
         if (info.menuItemId === "download_with_uget") {
             message.URL = link_url;
             message.Referer = page_url;
-            Promise.all([
-                fetch(link_url).then(response => response.headers)
-            ]).then(([headResponse]) => {
-                //message.FileSize = parseInt(headResponse.get('Content-Length'));
-                message.FileName = stripFileName(headResponse.get('content-disposition'));
-                cookiesGetAll(link_url);
-            }).catch((error) => {
-                message.FileName = '';
-                cookiesGetAll(link_url);
-            });
+            cookiesGetAll(link_url);
         } else if (info.menuItemId === "download_all_links_with_uget") {
             current_browser.tabs.executeScript(null, {
                 file: 'extract.js'
