@@ -58,7 +58,7 @@ function start() {
     initialize();
     readStorage();
     setDownloadHooks();
-    //enableVideoGrabber();
+    enableVideoGrabber();
 }
 /**
  * Initialize the variables.
