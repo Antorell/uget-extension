@@ -22,13 +22,12 @@
 /*                                                                                      */
 const EXTENSION_VERSION = "2.1.3";
 const REQUIRED_INTEGRATOR_VERSION = "1.0.0";
-//const MAX_FILE_SIZE = Number.MAX_SAFE_INTEGER;
-const WlDefaultMIME = ["bin", "zip", "gz", "7z", "xz", "z", "tar", "tgz", "bz2", "lzh", "rar", "iso", "rpm",
-    "deb", "exe", "msi", "apk", "3gp", "aac", "flac", "m4a", "m4p", "mp3", "ogg", "wav", "wma", "mp4", "mkv",
-    "webm", "ogv", "avi", "mov", "wmv", "flv", "f4v", "mpg", "mpeg", "rmvb"];
-const BlDefaultMIME = ["xml", "text", "rss", "json", "html", "javascript"];
-const BlDefaultURL = ["googleusercontent.com", "docs.google.com"];
-// const WlDefaultURL = [];
+const UgetWlDefaultMIME = ["3gp", "7z", "aac", "apk", "appx", "appxbundle", "avi", "bin", "bz2", "cab", "deb",
+    "exe", "f4v", "flac", "flv", "gz", "iso", "lzh", "m4a", "m4p", "mkv", "mov", "mp3", "mp4", "mpeg", "mpg", "msi",
+    "msixbundle", "ogg", "ogv", "rar", "rmvb", "rpm", "tar", "tgz", "wav", "webm", "wma", "wmv", "xz", "z", "zip"];
+const UgetBlDefaultMIME = ["xml", "text", "rss", "json", "html", "javascript"];
+const UgetBlDefaultURL = ["googleusercontent.com", "docs.google.com"];
+// const UgetWlDefaultURL = [];
 var interruptDownloadOne = true;
 var ugetIntegratorNotFound = true;
 var hostName;
@@ -38,15 +37,12 @@ var chromeVersion;
 var firefoxVersion;
 var minFileSizeToInterrupt = 300 * 1024; // 300 kb
 var current_browser;
-var filter = [];
-var myFile = '';
+// var filter = [];
 var urlsToSkip = [];
 var urlsToInterrupt = [];
 var mimeToSkip = [];
 var mimeToInterrupt = [];
 var mediasInTab = {}; //
-// var cookies = '';
-var currRequest = 0;
 var message = {
     URL: '',
     Cookies: '',
@@ -58,37 +54,17 @@ var message = {
     Batch: false,
     Version: EXTENSION_VERSION
 };
-//// ???????????
-// var requestList = [{
-//     cookies: '',
-//     postData: '',
-//     id: ''
-// }, {
-//     cookies: '',
-//     postData: '',
-//     id: ''
-// }, {
-//     cookies: '',
-//     postData: '',
-//     id: ''
-// }
-// ];
 function start() {
     initialize();
     readStorage();
     setDownloadHooks();
-    enableVideoGrabber();
+    //enableVideoGrabber();
 }
 /**
  * Initialize the variables.
  */
 function initialize() {
     // Get the running browser
-    // try {
-    //     chromeVersion = /Chrome\/([0-9]+)/.exec(navigator.userAgent)[1];
-    // } catch (ex) {
-    //     chromeVersion = 33; // 33??
-    // }
     try {
         current_browser = browser;
         hostName = 'com.ugetdm.firefox';
@@ -126,12 +102,12 @@ function readStorage() {
     current_browser.storage.sync.get(function (items) {
         // Read the storage for excluded keywords
         if (items["uget-urls-exclude"]) {
-            urlsToSkip = items["uget-urls-exclude"].toLowerCase().split(/[\s,]+/).filter(item => item).concat(BlDefaultURL);
+            urlsToSkip = items["uget-urls-exclude"].toLowerCase().split(/[\s,]+/).filter(item => item).concat(UgetBlDefaultURL);
         } else {
             current_browser.storage.sync.set({
                 "uget-urls-exclude": ''
             });
-            urlsToSkip = BlDefaultURL;
+            urlsToSkip = UgetBlDefaultURL;
         }
         // Read the storage for included keywords
         if (items["uget-urls-include"]) {
@@ -142,22 +118,22 @@ function readStorage() {
             });
         }//Blacklist
         if (items["uget-mime-exclude"]) {
-            mimeToSkip = items["uget-mime-exclude"].toLowerCase().split(/[\s,]+/).filter(item => item).concat(BlDefaultMIME);
+            mimeToSkip = items["uget-mime-exclude"].toLowerCase().split(/[\s,]+/).filter(item => item).concat(UgetBlDefaultMIME);
         } else {
             current_browser.storage.sync.set({
                 "uget-mime-exclude": ''
             });
-            mimeToSkip = BlDefaultMIME;
+            mimeToSkip = UgetBlDefaultMIME;
         }
         // Read the storage for included keywords
         // Whitelist
         if (items["uget-mime-include"]) {
-            mimeToInterrupt = items["uget-mime-include"].toLowerCase().split(/[\s,]+/).filter(item => item).concat(WlDefaultMIME);
+            mimeToInterrupt = items["uget-mime-include"].toLowerCase().split(/[\s,]+/).filter(item => item).concat(UgetWlDefaultMIME);
         } else {
             current_browser.storage.sync.set({
                 "uget-mime-include": ''
             });
-            mimeToInterrupt = WlDefaultMIME;
+            mimeToInterrupt = UgetWlDefaultMIME;
         }
         // Read the storage for the minimum file-size to interrupt
         if (items["uget-min-file-size"]) {
@@ -202,11 +178,21 @@ function createContextMenus() {
     current_browser.contextMenus.onClicked.addListener(function (info, tab) {
         "use strict";
         let page_url = info.pageUrl; //url of the current page, not the link.
-        let link_url = info['linkUrl'];
+        // let link_url = info.linkUrl;
         if (info.menuItemId === "download_with_uget") {
-            message.URL = link_url;
+            message.URL = info.linkUrl;
             message.Referer = page_url;
-            cookiesGetAll(link_url);
+            cookiesGetAll(info.linkUrl);
+            // Promise.all([
+            //     fetch(link_url).then(response => response.headers)
+            // ]).then(([headResponse]) => {
+            //     //message.FileSize = parseInt(headResponse.get('Content-Length'));
+            //     message.FileName = stripFileName(headResponse.get('content-disposition'));
+            //     cookiesGetAll(link_url);
+            // }).catch((error) => {
+            //     message.FileName = '';
+            //     cookiesGetAll(link_url);
+            // });
         } else if (info.menuItemId === "download_all_links_with_uget") {
             current_browser.tabs.executeScript(null, {
                 file: 'extract.js'
@@ -217,9 +203,6 @@ function createContextMenus() {
                     message.Referer = page_url;
                     message.Batch = true;
                     cookiesGetAll(page_url);
-                    // current_browser.cookies.getAll({
-                    //     'url': stripRootURL(page_url)
-                    // }, parseCookies);
                 }
             });
         } else if (info.menuItemId === "download_media_with_uget") {
@@ -228,9 +211,6 @@ function createContextMenus() {
                 message.URL = page_url;
                 message.Referer = page_url;
                 cookiesGetAll(page_url);
-                // current_browser.cookies.getAll({
-                //     'url': stripRootURL(page_url)
-                // }, parseCookies);
             } else {
                 // Other videos
                 var media_set = mediasInTab[tab['id']];
@@ -241,17 +221,11 @@ function createContextMenus() {
                         message.URL = urls[0];
                         message.Referer = page_url;
                         cookiesGetAll(page_url);
-                        // current_browser.cookies.getAll({
-                        //     'url': stripRootURL(page_url)
-                        // }, parseCookies);
                     } else if (no_or_urls > 1) {
                         message.URL = urls.join('\n');
                         message.Referer = page_url;
                         message.Batch = true;
                         cookiesGetAll(page_url);
-                        // current_browser.cookies.getAll({
-                        //     'url': stripRootURL(page_url)
-                        // }, parseCookies);
                     }
                 }
             }
@@ -263,237 +237,121 @@ function createContextMenus() {
  */
 function setDownloadHooks() {
     // Interrupt downloads on creation
+    // debugger
     current_browser.downloads.onCreated.addListener(function (downloadItem) {
-        // uget-integrator not installed
-        if (ugetIntegratorNotFound || !interruptDownloadOne) {
+        message.URL = downloadItem.url || downloadItem.finalUrl;
+        // uget-integrator not installed // that's a lot of OR. 
+        if (ugetIntegratorNotFound || !interruptDownloadOne || !message.URL.match(/^(https?\:|ftp\:)/i) ||
+            downloadItem.state.toString().toLowerCase() !== "in_progress" || isBlackListedURL(message.URL)) {
+            clearMessage();
             return;
         }
-        if ("in_progress" !== downloadItem['state'].toString().toLowerCase()) {
-            return;
-        }
-        let link_url = downloadItem['url'] || downloadItem['finalUrl'];
-        ///
-        if (!link_url.match(/^(https?\:|ftp\:)/g)) {
-            return;
-        }
-        ///
-        Promise.all([
-            fetch(link_url).then(response => response.headers)
-        ]).then(([headResponse]) => {
-            message.FileSize = parseInt(headResponse.get('Content-Length'));
-            message.FileName = stripFileName(headResponse.get('content-disposition'));
-        });
-        let UfileExtension = stripExtension(link_url);
-        let ContentType = downloadItem['mime'];
+        UgetFetchPromise(message.URL);
+        let UfileExtension = stripExtension(message.URL);
+        let ContentType = downloadItem.mime;
         // Do not interrupt blacklisted items
-        if (isBlackListedURL(link_url) || isBlackListedContent(UfileExtension, ContentType) || message.FileSize < minFileSizeToInterrupt) {
+        if (/* isBlackListedURL(link_url) ||*/  isBlackListedContent(UfileExtension, ContentType) || message.FileSize < minFileSizeToInterrupt) {
+            clearMessage();
             return;
-            // } else if (message.FileSize < minFileSizeToInterrupt) {
-            //     return;
-            // } // Interrupt files based on UgetDefaultMIME, ignore files smaller than minFileSizeToInterrupt and blacklisted files.
-        } else if (isWhiteListedURL(link_url) || isWhiteListedContent(UfileExtension, ContentType)) {
-            // Cancel the download
+            // Interrupt files based on UgetDefaultMIME, ignore files smaller than minFileSizeToInterrupt and blacklisted files.
+        } else if (isWhiteListedURL(message.URL) || isWhiteListedContent(UfileExtension, ContentType)) {
+            // Cancel the download// Erase the download from list
             current_browser.downloads.cancel(downloadItem.id);
-            // Erase the download from list
             current_browser.downloads.erase({
                 id: downloadItem.id
             });
-            message.URL = link_url;
-            message.Referer = downloadItem['referrer'];
-            cookiesGetAll(link_url);
-            // current_browser.cookies.getAll({
-            //     'url': stripRootURL(link_url)
-            // }, parseCookies);
+            message.Referer = downloadItem.referrer;
+            cookiesGetAll(message.URL);
         } else {
             return;
         }
     })
-    /*  current_browser.webRequest.onBeforeRequest.addListener(function (details) {
-          ///???????
-  //                  if (details.method === 'POST') {
-  //                     message.PostData = postParams(details.requestBody.formData);
-  //                 }   
-          return {
-              requestHeaders: details.requestHeaders
-          };
-      }, {
-          urls: [
-              '<all_urls>'
-          ],
-          types: [
-              'main_frame',
-              'sub_frame'
-          ]
-      }, [
-          'blocking',
-          'requestBody'
-      ]);
-       current_browser.webRequest.onBeforeSendHeaders.addListener(function (details) {
-          ///?????????????????????
-          // currRequest++;
-          // if (currRequest > 2)
-          //     currRequest = 2;
-          // requestList[currRequest].id = details.requestId;
-          // message.UserAgent = navigator.userAgent;
-          // for (let i = 0; i < details.requestHeaders.length; ++i) {
-          //     if (details.requestHeaders[i].name.toLowerCase() === 'referer') {
-          //         requestList[currRequest].referrer = details.requestHeaders[i].value;
-          //     } else if (details.requestHeaders[i].name.toLowerCase() === 'cookie') {
-          //         requestList[currRequest].cookies = details.requestHeaders[i].value;
-          //     }
-          // }
-          return {
-              requestHeaders: details.requestHeaders
-          };
-      }, {
-          urls: [
-              '<all_urls>'
-          ],
-          types: [
-              'main_frame',
-              'sub_frame',
-              'xmlhttprequest'
-          ]
-      }, [
-          'blocking',
-          'requestHeaders'
-      ]); */
     current_browser.webRequest.onHeadersReceived.addListener(function (details) {
-        let interruptDownloadTwo = false;
+        let ContentType = 'text/html';
         // uget-integrator not installed// HTTP response is not OK
         if (ugetIntegratorNotFound || details.statusCode != 200 || isBlackListedURL(details.url)) {
+            clearMessage();
             return {
                 responseHeaders: details.responseHeaders
             };
         }
-        // if (ugetIntegratorNotFound) { // uget-integrator not installed
-        //     return {
-        //         responseHeaders: details.responseHeaders
-        //     };
-        // }
-        // if (details.statusCode != 200) { // HTTP response is not OK
-        //     return {
-        //         responseHeaders: details.responseHeaders
-        //     };
-        // }
-        // if (isBlackListedURL(details.url)) {
-        //     return {
-        //         responseHeaders: details.responseHeaders
-        //     };
-        // }
-        let ContentType = details.responseHeaders.find(({ name }) => name.toLowerCase() === 'content-type').value;
+        ContentType = details.responseHeaders.find(({ name }) => name.toLowerCase() === 'content-type').value;
         if (!ContentType.includes('text/html')) {
+            let interruptDownloadTwo = false;
+            message.URL = details.url;
+            let UfileExtension = stripExtension(details.url);
             try {
                 message.FileName = stripFileName(details.responseHeaders.find(({ name }) => name.toLowerCase() === 'content-disposition').value);
             } catch (error) {
                 message.FileName = '';
             }
-            message.FileSize = parseInt(details.responseHeaders.find(({ name }) => name.toLowerCase() === 'content-length').value);
-            message.URL = details.url;
-            let UfileExtension = stripExtension(details.url);
+            try {
+                message.FileSize = parseInt(details.responseHeaders.find(({ name }) => name.toLowerCase() === 'content-length').value);
+            } catch (error) {
+                //// untested/barely tested, should fix akamai no content-length. Probably breaks a tons of other things.
+                if (details.responseHeaders.find(({ name }) => name.toLowerCase() === 'accept-ranges').value === "bytes") {
+                    message.FileSize = minFileSizeToInterrupt + 1;
+                } else {
+                    clearMessage();
+                    return;
+                }
+            }
             // Do not interrupt blacklisted items
             if (/* isBlackListedURL(details.url) || */ isBlackListedContent(UfileExtension, ContentType) || message.FileSize < minFileSizeToInterrupt) {
                 interruptDownloadTwo = false;
+                clearMessage();
                 return {
                     responseHeaders: details.responseHeaders
                 };
-                // Always interrupt whitelisted items
-                // } else if (message.FileSize < minFileSizeToInterrupt) {
-                //     interruptDownloadTwo = false;
-                //     return {
-                //         responseHeaders: details.responseHeaders
-                //     };
             } else if (isWhiteListedURL(details.url) || isWhiteListedContent(UfileExtension, ContentType)) {
                 interruptDownloadTwo = true;
             }
-            ///TODO: Remove the loop.
-            // for (let i = 0; i < details.responseHeaders.length; ++i) {
-            //     if (details.responseHeaders[i].name.toLowerCase() == 'content-length') {
-            //         message.FileSize = parseInt(details.responseHeaders[i].value);
-            //         if (message.FileSize < minFileSizeToInterrupt && !isWhiteListedURL(message.URL)) {
-            //             interruptDownloadTwo = false;
-            //             return {
-            //                 responseHeaders: details.responseHeaders
-            //             };
-            //         }
-            //     } else if (details.responseHeaders[i].name.toLowerCase() == 'content-type') {
-            //         ContentType = details.responseHeaders[i].value;
-            //         if (isBlackListedContent(UfileExtension) || isBlackListedContent(ContentType)) {
-            //             interruptDownloadTwo = false;
-            //             return {
-            //                 responseHeaders: details.responseHeaders
-            //             };
-            //         } else if (isWhiteListedContent(UfileExtension) || isWhiteListedContent(ContentType)) {
-            //             interruptDownloadTwo = true;
-            //             break;
-            //         } else {
-            //             return {
-            //                 responseHeaders: details.responseHeaders
-            //             };
-            //         }
-            //     } else if (details.responseHeaders[i].name.toLowerCase() == 'content-disposition') {
-            //         ContentDisposition = details.responseHeaders[i].value;
-            //         if (ContentDisposition.lastIndexOf('filename') != -1) {
-            //             message.FileName = stripFileName(ContentDisposition);
-            //             interruptDownloadTwo = true;
-            //         }
-            //     }
-            // }
-            //}
             /// filter?????
             if (interruptDownloadTwo && interruptDownloadOne) {
-                for (let i = 0; i < filter.length; i++) {
-                    if (filter[i] != "" && ContentType.lastIndexOf(filter[i]) != -1) {
-                        return {
-                            responseHeaders: details.responseHeaders
-                        };
-                    }
-                }
-                ///???????????????????????
-                // for (let i = 0; i < 3; i++) {
-                //     if (details.requestId == requestList[i].id && requestList[i].id != "") {
-                //         message.Referer = requestList[i].referrer;
-                //         message.Cookies = requestList[i].cookies;
-                //         break;
+                // for (let i = 0; i < filter.length; i++) {
+                //     if (filter[i] != "" && ContentType.lastIndexOf(filter[i]) != -1) {
+                //         return {
+                //             responseHeaders: details.responseHeaders
+                //         };
                 //     }
                 // }
-                if (details.method != "POST") {
-                    message.PostData = '';
-                }
+                // if (details.method != "POST") {
+                //     message.PostData = '';
+                // }
                 if (details.originUrl) {
                     message.Referer = details.originUrl;
                 }
                 cookiesGetAll(message.URL);
-                // current_browser.cookies.getAll({
-                //     'url': stripRootURL(message.URL)
-                // }, parseCookies);
                 //let scheme = /^https/.test(details.url) ? 'https' : 'http'; //???????
-                if (chromeVersion >= 35 || firefoxVersion >= 51) {
-                    return {
-                        redirectUrl: "javascript:"
-                    };
-                } else if (details.frameId === 0) {
-                    current_browser.tabs.update(details.tabId, {
-                        url: "javascript:"
-                    });///?????
-                    let responseHeaders = details.responseHeaders.filter(function (header) {
-                        let name = header.name.toLowerCase();
-                        return name !== 'content-type' &&
-                            name !== 'x-content-type-options' &&
-                            name !== 'content-disposition';
-                    }).concat([{
-                        name: 'Content-Type',
-                        value: 'text/plain'
-                    }, {
-                        name: 'X-Content-Type-Options',
-                        value: 'nosniff'
-                    }
-                    ]);
-                    return {
-                        responseHeaders: responseHeaders
-                    };
-                }
+                // if (chromeVersion >= 35 || firefoxVersion >= 51) {
+                //     return {
+                //         redirectUrl: "javascript:"
+                //     };
+                /// Manifest: Firefox min version = 57. Chrome min version = 45
+                // }
+                // else if (details.frameId === 0) {
+                //     current_browser.tabs.update(details.tabId, {
+                //         url: "javascript:"
+                //     });
+                //     let responseHeaders = details.responseHeaders.filter(function (header) {
+                //         let name = header.name.toLowerCase();
+                //         return name !== 'content-type' &&
+                //             name !== 'x-content-type-options' &&
+                //             name !== 'content-disposition';
+                //     }).concat([{
+                //         name: 'Content-Type',
+                //         value: 'text/plain'
+                //     }, {
+                //         name: 'X-Content-Type-Options',
+                //         value: 'nosniff'
+                //     }
+                //     ]);
+                //     return {
+                //         responseHeaders: responseHeaders
+                //     };
+                // }
                 return {
+                    redirectUrl: "javascript:",//??
                     cancel: true
                 };
             } else {
@@ -515,6 +373,8 @@ function setDownloadHooks() {
         'responseHeaders',
         'blocking'
     ]);
+
+
 }
 /**
  * Check the TAB URL and enable download_media_with_uget if the page is Youtube
@@ -522,6 +382,7 @@ function setDownloadHooks() {
  */
 function checkForYoutube(tabId, disableIfNot) {
     current_browser.tabs.get(tabId, function (tab) {
+        ///?????
         isYoutube = tab['url'] && tab['url'].includes('/www.youtube.com/watch?v=')
         if (isYoutube) {
             current_browser.contextMenus.update("download_media_with_uget", {
@@ -641,6 +502,17 @@ function postParams(source) {
  * Get the file size of given URL.
  * @param {string} url
  */
+function UgetFetchPromise(url) {
+    Promise.all([
+        fetch(url).then(response => response.headers)
+    ]).then(([headResponse]) => {
+        message.FileSize = parseInt(headResponse.get('content-length'));
+        message.FileName = stripFileName(headResponse.get('content-disposition'));
+    }).catch((_error) => {
+        message.FileSize = 0;
+        message.FileName = '';
+    });
+}
 function stripFileName(content) {
     let FileName = '';
     if (content != null) {
@@ -654,7 +526,7 @@ function stripExtension(url) {
     if (FileName != null) {
         FileNameExt = FileName.slice((FileName.lastIndexOf(".") - 1 >>> 0) + 2);
     }
-    return FileNameExt.toString().toLowerCase();
+    return FileNameExt.toLowerCase();
 }
 /**
  * Extract the root of a URL.
@@ -698,9 +570,9 @@ function parseCookies(cookies_arr) {
  */
 function updateExcludeKeywords(exclude) {
     if (exclude === "") {
-        urlsToSkip = BlDefaultURL;
+        urlsToSkip = UgetBlDefaultURL;
     } else {
-        urlsToSkip = exclude.split(/[\s,]+/).concat(BlDefaultURL)
+        urlsToSkip = exclude.split(/[\s,]+/).concat(UgetBlDefaultURL)
     }
     current_browser.storage.sync.set({
         "uget-urls-exclude": exclude
@@ -726,9 +598,9 @@ function updateIncludeKeywords(include) {
  */
 function updateExcludeMIMEs(exclude) {
     if (exclude === "") {
-        mimeToSkip = BlDefaultMIME;
+        mimeToSkip = UgetBlDefaultMIME;
     } else {
-        mimeToSkip = exclude.split(/[\s,]+/).concat(BlDefaultMIME);
+        mimeToSkip = exclude.split(/[\s,]+/).concat(UgetBlDefaultMIME);
     }
     current_browser.storage.sync.set({
         "uget-mime-exclude": exclude
@@ -740,9 +612,9 @@ function updateExcludeMIMEs(exclude) {
  */
 function updateIncludeMIMEs(include) {
     if (include === "") {
-        mimeToInterrupt = WlDefaultMIME;
+        mimeToInterrupt = UgetWlDefaultMIME;
     } else {
-        mimeToInterrupt = include.split(/[\s,]+/).concat(WlDefaultMIME);
+        mimeToInterrupt = include.split(/[\s,]+/).concat(UgetWlDefaultMIME);
     }
     current_browser.storage.sync.set({
         "uget-mime-include": include
@@ -794,10 +666,6 @@ function isBlackListedContent(extension, contype) {
 function isWhiteListedURL(url) {
     let whiteListed = false;
     try {
-        // Test the URL -- That's horrid. url.includes("video") matches video anywhere in the URL.
-        // if (url.includes('/video')) {
-        //     whiteListed = true;
-        // } else {
         url = stripRootURL(url);
         for (let keyword of urlsToInterrupt) {
             if (url.includes(keyword)) {
