@@ -509,7 +509,7 @@ function UgetFetchPromise(url) {
         message.FileSize = parseInt(headResponse.get('content-length'));
         message.FileName = stripFileName(headResponse.get('content-disposition'));
     }).catch((_error) => {
-        message.FileSize = 0;
+        message.FileSize = minFileSizeToInterrupt;
         message.FileName = '';
     });
 }
