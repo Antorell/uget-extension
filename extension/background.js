@@ -22,9 +22,9 @@
 /*                                                                                      */
 const EXTENSION_VERSION = "2.1.3";
 const REQUIRED_INTEGRATOR_VERSION = "1.0.0";
-const UgetWlDefaultMIME = ["3gp", "7z", "aac", "apk", "appx", "appxbundle", "avi", "bin", "bz2", "cab", "deb",
-    "exe", "f4v", "flac", "flv", "gz", "iso", "lzh", "m4a", "m4p", "mkv", "mov", "mp3", "mp4", "mpeg", "mpg", "msi",
-    "msixbundle", "ogg", "ogv", "rar", "rmvb", "rpm", "tar", "tgz", "wav", "webm", "wma", "wmv", "xz", "z", "zip"];
+const UgetWlDefaultMIME = ["3gp", "7z", "aac", "apk", "appx", "appxbundle", "avi", "bin", "bz2", "cab", "dat", "deb", "esd",
+    "exe", "f4v", "flac", "flv", "gz", "iso", "lzh", "m4a", "m4p", "mkv", "mov", "mp3", "mp4", "mpeg", "mpg", "msi", "msu",
+    "msixbundle", "ogg", "ogv", "rar", "rmvb", "rpm", "tar", "tgz", "wav", "webm", "wma", "wmv", "xz", "x-matroska", "z", "zip"];
 const UgetBlDefaultMIME = ["xml", "text", "rss", "json", "html", "javascript"];
 const UgetBlDefaultURL = ["googleusercontent.com", "docs.google.com"];
 // const UgetWlDefaultURL = [];
@@ -73,7 +73,7 @@ function initialize() {
                 if (info.name === 'Firefox') {
                     // Convert version string to int
                     firefoxVersion = parseInt(info.version.replace(/[ab]\d+/, '').split('.')[0]);
-                    chromeVersion = 33;
+                    chromeVersion = 0;
                 }
             });
     } catch (ex) {
@@ -247,7 +247,8 @@ function setDownloadHooks() {
             return;
         }
         UgetFetchPromise(message.URL);
-        let UfileExtension = stripExtension(message.URL);
+        //untested
+        let UfileExtension = stripExtension(message.URL) || stripExtension(message.FileName);
         let ContentType = downloadItem.mime;
         // Do not interrupt blacklisted items
         if (/* isBlackListedURL(link_url) ||*/  isBlackListedContent(UfileExtension, ContentType) || message.FileSize < minFileSizeToInterrupt) {
@@ -255,11 +256,8 @@ function setDownloadHooks() {
             return;
             // Interrupt files based on UgetDefaultMIME, ignore files smaller than minFileSizeToInterrupt and blacklisted files.
         } else if (isWhiteListedURL(message.URL) || isWhiteListedContent(UfileExtension, ContentType)) {
-            // Cancel the download// Erase the download from list
             current_browser.downloads.cancel(downloadItem.id);
-            current_browser.downloads.erase({
-                id: downloadItem.id
-            });
+            current_browser.downloads.erase({ id: downloadItem.id });
             message.Referer = downloadItem.referrer;
             cookiesGetAll(message.URL);
         } else {
@@ -279,18 +277,20 @@ function setDownloadHooks() {
         if (!ContentType.includes('text/html')) {
             let interruptDownloadTwo = false;
             message.URL = details.url;
-            let UfileExtension = stripExtension(details.url);
             try {
                 message.FileName = stripFileName(details.responseHeaders.find(({ name }) => name.toLowerCase() === 'content-disposition').value);
             } catch (error) {
                 message.FileName = '';
             }
+            //console.log(details.responseHeaders);
+            let UfileExtension = stripExtension(details.url) || stripExtension(message.FileName);
+            //console.log(UfileExtension);
             try {
                 message.FileSize = parseInt(details.responseHeaders.find(({ name }) => name.toLowerCase() === 'content-length').value);
             } catch (error) {
                 //// untested/barely tested, should fix akamai no content-length. Probably breaks a tons of other things.
                 if (details.responseHeaders.find(({ name }) => name.toLowerCase() === 'accept-ranges').value === "bytes") {
-                    message.FileSize = minFileSizeToInterrupt + 1;
+                    message.FileSize = minFileSizeToInterrupt;
                 } else {
                     clearMessage();
                     return;
@@ -306,50 +306,11 @@ function setDownloadHooks() {
             } else if (isWhiteListedURL(details.url) || isWhiteListedContent(UfileExtension, ContentType)) {
                 interruptDownloadTwo = true;
             }
-            /// filter?????
             if (interruptDownloadTwo && interruptDownloadOne) {
-                // for (let i = 0; i < filter.length; i++) {
-                //     if (filter[i] != "" && ContentType.lastIndexOf(filter[i]) != -1) {
-                //         return {
-                //             responseHeaders: details.responseHeaders
-                //         };
-                //     }
-                // }
-                // if (details.method != "POST") {
-                //     message.PostData = '';
-                // }
                 if (details.originUrl) {
                     message.Referer = details.originUrl;
                 }
                 cookiesGetAll(message.URL);
-                //let scheme = /^https/.test(details.url) ? 'https' : 'http'; //???????
-                // if (chromeVersion >= 35 || firefoxVersion >= 51) {
-                //     return {
-                //         redirectUrl: "javascript:"
-                //     };
-                /// Manifest: Firefox min version = 57. Chrome min version = 45
-                // }
-                // else if (details.frameId === 0) {
-                //     current_browser.tabs.update(details.tabId, {
-                //         url: "javascript:"
-                //     });
-                //     let responseHeaders = details.responseHeaders.filter(function (header) {
-                //         let name = header.name.toLowerCase();
-                //         return name !== 'content-type' &&
-                //             name !== 'x-content-type-options' &&
-                //             name !== 'content-disposition';
-                //     }).concat([{
-                //         name: 'Content-Type',
-                //         value: 'text/plain'
-                //     }, {
-                //         name: 'X-Content-Type-Options',
-                //         value: 'nosniff'
-                //     }
-                //     ]);
-                //     return {
-                //         responseHeaders: responseHeaders
-                //     };
-                // }
                 return {
                     redirectUrl: "javascript:",//??
                     cancel: true
@@ -479,13 +440,8 @@ function getState() {
  * Clear the message.
  */
 function clearMessage() {
-    message.URL = '';
-    message.Cookies = '';
-    message.FileName = '';
-    message.FileSize = '';
-    message.Referer = '';
+    message.URL = message.Cookies = message.FileName = message.FileSize = message.Referer = message.PostData = '';
     message.UserAgent = navigator.userAgent;
-    message.PostData = '';
     message.Batch = false;
 }
 /**
@@ -503,15 +459,14 @@ function postParams(source) {
  * @param {string} url
  */
 function UgetFetchPromise(url) {
-    Promise.all([
-        fetch(url).then(response => response.headers)
-    ]).then(([headResponse]) => {
-        message.FileSize = parseInt(headResponse.get('content-length'));
-        message.FileName = stripFileName(headResponse.get('content-disposition'));
-    }).catch((_error) => {
-        message.FileSize = minFileSizeToInterrupt;
-        message.FileName = '';
-    });
+    Promise.all([fetch(url).then(response => response.headers)])
+        .then(([headResponse]) => {
+            message.FileSize = parseInt(headResponse.get('content-length'));
+            message.FileName = stripFileName(headResponse.get('content-disposition'));
+        }).catch((_error) => {
+            message.FileSize = minFileSizeToInterrupt;
+            message.FileName = '';
+        });
 }
 function stripFileName(content) {
     let FileName = '';
