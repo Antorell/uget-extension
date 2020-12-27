@@ -18,7 +18,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 /*                                                                                      */
-/*  The modifications work with Firefox + Uget + Aria2. Uget+Curl, or Chrome, untested. */
+/*  The modifications work with Firefox + Uget + Aria2. Uget + Curl, or Chrome, untested. */
+/*  I'm not a Js dev, or a dev at all, so don't mind me if the modifications are not up to js coding standards */
 /*                                                                                      */
 const EXTENSION_VERSION = "2.1.3";
 const REQUIRED_INTEGRATOR_VERSION = "1.0.0";
@@ -28,7 +29,7 @@ const UgetWlDefaultMIME = ["3gp", "7z", "aac", "apk", "appx", "appxbundle", "avi
 const UgetBlDefaultMIME = ["xml", "text", "rss", "json", "html", "javascript"];
 const UgetBlDefaultURL = ["googleusercontent.com", "docs.google.com"];
 // const UgetWlDefaultURL = [];
-var interruptDownloadOne = true;
+var interruptDownloadSwitch = true;
 var ugetIntegratorNotFound = true;
 var hostName;
 var ugetIntegratorVersion;
@@ -58,7 +59,7 @@ function start() {
     initialize();
     readStorage();
     setDownloadHooks();
-    enableVideoGrabber();
+    //enableVideoGrabber();
 }
 /**
  * Initialize the variables.
@@ -77,10 +78,10 @@ function initialize() {
                 }
             });
     } catch (ex) {
-        // untested
-        firefoxVersion = 0;
+        // untested        
         current_browser = chrome;
         chromeVersion = /Chrome\/([0-9]+)/.exec(navigator.userAgent)[1];
+        firefoxVersion = 0;
         chromeVersion = parseInt(chromeVersion);
         hostName = 'com.ugetdm.chrome';
     }
@@ -88,7 +89,7 @@ function initialize() {
     current_browser.commands.onCommand.addListener(function (command) {
         if ("toggle-interruption" === command) {
             // Toggle
-            setInterruptDownload(!interruptDownloadOne, true);
+            setInterruptDownload(!interruptDownloadSwitch, true);
         }
     });
     sendMessageToHost(message);
@@ -239,18 +240,19 @@ function setDownloadHooks() {
     // Interrupt downloads on creation
     // debugger
     current_browser.downloads.onCreated.addListener(function (downloadItem) {
+        // untested on Chrome
         message.URL = downloadItem.url || downloadItem.finalUrl;
         // uget-integrator not installed // that's a lot of OR. 
-        if (ugetIntegratorNotFound || !interruptDownloadOne || !message.URL.match(/^(https?\:|ftp\:)/i) ||
+        if (ugetIntegratorNotFound || !interruptDownloadSwitch || !message.URL.match(/^(https?\:|ftp\:)/i) ||
             downloadItem.state.toString().toLowerCase() !== "in_progress" || isBlackListedURL(message.URL)) {
             clearMessage();
             return;
         }
-        UgetFetchPromise(message.URL);
-        //untested
-        let UfileExtension = stripExtension(message.URL) || stripExtension(message.FileName);
+        ugetFetchPromise(message.URL);
         let ContentType = downloadItem.mime;
-        // Do not interrupt blacklisted items
+        //async untested
+        //console.log(UfileExtension);
+        let UfileExtension = stripExtension(message.URL) || stripExtension(message.FileName);
         if (/* isBlackListedURL(link_url) ||*/  isBlackListedContent(UfileExtension, ContentType) || message.FileSize < minFileSizeToInterrupt) {
             clearMessage();
             return;
@@ -275,7 +277,7 @@ function setDownloadHooks() {
         }
         ContentType = details.responseHeaders.find(({ name }) => name.toLowerCase() === 'content-type').value;
         if (!ContentType.includes('text/html')) {
-            let interruptDownloadTwo = false;
+            let interruptDownloadwhitelist = false;
             message.URL = details.url;
             try {
                 message.FileName = stripFileName(details.responseHeaders.find(({ name }) => name.toLowerCase() === 'content-disposition').value);
@@ -283,30 +285,33 @@ function setDownloadHooks() {
                 message.FileName = '';
             }
             //console.log(details.responseHeaders);
-            let UfileExtension = stripExtension(details.url) || stripExtension(message.FileName);
-            //console.log(UfileExtension);
+
             try {
                 message.FileSize = parseInt(details.responseHeaders.find(({ name }) => name.toLowerCase() === 'content-length').value);
             } catch (error) {
                 //// untested/barely tested, should fix akamai no content-length. Probably breaks a tons of other things.
+                //console.log("No content-length")
                 if (details.responseHeaders.find(({ name }) => name.toLowerCase() === 'accept-ranges').value === "bytes") {
                     message.FileSize = minFileSizeToInterrupt;
                 } else {
+                    //console.log("content-length error -> Line #288-294")
                     clearMessage();
                     return;
                 }
             }
+            let UfileExtension = stripExtension(details.url) || stripExtension(message.FileName);
+            //console.log(UfileExtension);
             // Do not interrupt blacklisted items
             if (/* isBlackListedURL(details.url) || */ isBlackListedContent(UfileExtension, ContentType) || message.FileSize < minFileSizeToInterrupt) {
-                interruptDownloadTwo = false;
+                interruptDownloadwhitelist = false;
                 clearMessage();
                 return {
                     responseHeaders: details.responseHeaders
                 };
             } else if (isWhiteListedURL(details.url) || isWhiteListedContent(UfileExtension, ContentType)) {
-                interruptDownloadTwo = true;
+                interruptDownloadwhitelist = true;
             }
-            if (interruptDownloadTwo && interruptDownloadOne) {
+            if (interruptDownloadwhitelist && interruptDownloadSwitch) {
                 if (details.originUrl) {
                     message.Referer = details.originUrl;
                 }
@@ -458,7 +463,7 @@ function postParams(source) {
  * Get the file size of given URL.
  * @param {string} url
  */
-function UgetFetchPromise(url) {
+function ugetFetchPromise(url) {
     Promise.all([fetch(url).then(response => response.headers)])
         .then(([headResponse]) => {
             message.FileSize = parseInt(headResponse.get('content-length'));
@@ -589,68 +594,67 @@ function updateMinFileSize(size) {
  * Check whether not to interrupt the given url.
  */
 function isBlackListedURL(url) {
-    let blackListed = false;
-    try {
-        url = stripRootURL(url)
-        for (let keyword of urlsToSkip) {
-            if (url.includes(keyword)) {
-                blackListed = true;
+    let BlackListed = false;
+    //try {
+    url = stripRootURL(url)
+    for (let keyword of urlsToSkip) {
+        if (url.includes(keyword)) {
+            BlackListed = true;
+            break;
+        }
+    }
+    // } catch (error) { blackListed = true; }
+    return BlackListed;
+}
+function isBlackListedContent(extension, contype) {
+    let BlackListed = false;
+    // try {
+    if (extension || contype) {
+        for (let keyword of mimeToSkip) {
+            if (extension.includes(keyword.toString()) || contype.includes(keyword.toString())) {
+                BlackListed = true;
                 break;
             }
         }
-    } catch (error) { blackListed = true; }
-    return blackListed;
-}
-function isBlackListedContent(extension, contype) {
-    let blackListed = false;
-    try {
-        if (extension || contype) {
-            for (let keyword of mimeToSkip) {
-                if (extension.includes(keyword.toString()) || contype.includes(keyword.toString())) {
-                    blackListed = true;
-                    break;
-                }
-            }
-        }
-    } catch (error) { blackListed = false; }
-    return blackListed;
+    }
+    //} catch (error) { blackListed = false; }
+    return BlackListed;
 }
 /**
  * Check whether to interrupt the given url or not.
  */
 function isWhiteListedURL(url) {
+    let WhiteListed = false;
+    // try {
+    url = stripRootURL(url);
+    for (let keyword of urlsToInterrupt) {
+        if (url.includes(keyword)) {
+            WhiteListed = true;
+            break;
+        }
+    }
+    // } catch (error) { whiteListed = false; }
+    return WhiteListed;
+}
+function isWhiteListedContent(extension, contype) {
     let whiteListed = false;
-    try {
-        url = stripRootURL(url);
-        for (let keyword of urlsToInterrupt) {
-            if (url.includes(keyword)) {
+    //try {
+    if (extension || contype) {
+        for (let keyword of mimeToInterrupt) {
+            if (extension.includes(keyword.toString()) || contype.includes(keyword.toString())) {
                 whiteListed = true;
                 break;
             }
         }
-        //}
-    } catch (error) { whiteListed = false; }
-    return whiteListed;
-}
-function isWhiteListedContent(extension, contype) {
-    let whiteListed = false;
-    try {
-        if (extension || contype) {
-            for (let keyword of mimeToInterrupt) {
-                if (extension.includes(keyword.toString()) || contype.includes(keyword.toString())) {
-                    whiteListed = true;
-                    break;
-                }
-            }
-        }
-    } catch (error) { whiteListed = false; }
+    }
+    //} catch (error) { whiteListed = false; }
     return whiteListed;
 }
 /**
  * Enable/Disable the plugin and update the plugin icon based on the state.
  */
 function setInterruptDownload(interrupt, writeToStorage) {
-    interruptDownloadOne = interrupt;
+    interruptDownloadSwitch = interrupt;
     if (writeToStorage) {
         current_browser.storage.sync.set({
             "uget-interrupt": interrupt.toString()
@@ -664,7 +668,7 @@ function setInterruptDownload(interrupt, writeToStorage) {
 function changeIcon() {
     let state = getState();
     iconPath = "./icon_32.png";
-    if (state == 0 && !interruptDownloadOne) {
+    if (state == 0 && !interruptDownloadSwitch) {
         iconPath = "./icon_disabled_32.png";
     } else if (state == 1) {
         // Warning
