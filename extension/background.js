@@ -19,16 +19,16 @@
  */
 /*                                                                                      */
 /*  The modifications work with Firefox + Uget + Aria2. Uget + Curl, or Chrome, untested. */
-/*  I'm not a Js dev, or a dev at all, so don't mind me if the modifications are not up to js coding standards */
+/*  I'm not a Js dev, or a dev at all, so don't mind me if it's not up to js coding standards */
 /*                                                                                      */
 const EXTENSION_VERSION = "2.1.3";
 const REQUIRED_INTEGRATOR_VERSION = "1.0.0";
-const UgetWlDefaultMIME = ["3gp", "7z", "aac", "apk", "appx", "appxbundle", "avi", "bin", "bz2", "cab", "dat", "deb", "esd",
+const UgetIncludeDefaultMIME = ["3gp", "7z", "aac", "apk", "appx", "appxbundle", "avi", "bin", "bz2", "cab", "dat", "deb", "esd",
     "exe", "f4v", "flac", "flv", "gz", "iso", "lzh", "m4a", "m4p", "mkv", "mov", "mp3", "mp4", "mpeg", "mpg", "msi", "msu",
     "msixbundle", "ogg", "ogv", "rar", "rmvb", "rpm", "tar", "tgz", "wav", "webm", "wma", "wmv", "xz", "x-matroska", "z", "zip"];
-const UgetBlDefaultMIME = ["xml", "text", "rss", "json", "html", "javascript"];
-const UgetBlDefaultURL = ["googleusercontent.com", "docs.google.com"];
-// const UgetWlDefaultURL = [];
+const UgetExcludeDefaultMIME = ["xml", "text", "rss", "json", "html", "javascript"];
+const UgetExcludeDefaultURL = ["googleusercontent.com", "docs.google.com"];
+const UgetIncludeDefaultURL = [];
 var interruptDownloadSwitch = true;
 var ugetIntegratorNotFound = true;
 var hostName;
@@ -103,38 +103,39 @@ function readStorage() {
     current_browser.storage.sync.get(function (items) {
         // Read the storage for excluded keywords
         if (items["uget-urls-exclude"]) {
-            urlsToSkip = items["uget-urls-exclude"].toLowerCase().split(/[\s,]+/).filter(item => item).concat(UgetBlDefaultURL);
+            urlsToSkip = items["uget-urls-exclude"].toLowerCase().split(/[\s,]+/).filter(Boolean).concat(UgetExcludeDefaultURL);
         } else {
             current_browser.storage.sync.set({
                 "uget-urls-exclude": ''
             });
-            urlsToSkip = UgetBlDefaultURL;
+            urlsToSkip = UgetExcludeDefaultURL;
         }
         // Read the storage for included keywords
         if (items["uget-urls-include"]) {
-            urlsToInterrupt = items["uget-urls-include"].toLowerCase().split(/[\s,]+/).filter(item => item);
+            urlsToInterrupt = items["uget-urls-include"].toLowerCase().split(/[\s,]+/).filter(Boolean).concat(UgetIncludeDefaultURL);
         } else {
             current_browser.storage.sync.set({
                 "uget-urls-include": ''
             });
+            urlsToInterrupt = UgetIncludeDefaultURL;
         }//Blacklist
         if (items["uget-mime-exclude"]) {
-            mimeToSkip = items["uget-mime-exclude"].toLowerCase().split(/[\s,]+/).filter(item => item).concat(UgetBlDefaultMIME);
+            mimeToSkip = items["uget-mime-exclude"].toLowerCase().split(/[\s,]+/).filter(Boolean).concat(UgetExcludeDefaultMIME);
         } else {
             current_browser.storage.sync.set({
                 "uget-mime-exclude": ''
             });
-            mimeToSkip = UgetBlDefaultMIME;
+            mimeToSkip = UgetExcludeDefaultMIME;
         }
         // Read the storage for included keywords
         // Whitelist
         if (items["uget-mime-include"]) {
-            mimeToInterrupt = items["uget-mime-include"].toLowerCase().split(/[\s,]+/).filter(item => item).concat(UgetWlDefaultMIME);
+            mimeToInterrupt = items["uget-mime-include"].toLowerCase().split(/[\s,]+/).filter(Boolean).concat(UgetIncludeDefaultMIME);
         } else {
             current_browser.storage.sync.set({
                 "uget-mime-include": ''
             });
-            mimeToInterrupt = UgetWlDefaultMIME;
+            mimeToInterrupt = UgetIncludeDefaultMIME;
         }
         // Read the storage for the minimum file-size to interrupt
         if (items["uget-min-file-size"]) {
@@ -184,16 +185,6 @@ function createContextMenus() {
             message.URL = info.linkUrl;
             message.Referer = page_url;
             cookiesGetAll(info.linkUrl);
-            // Promise.all([
-            //     fetch(link_url).then(response => response.headers)
-            // ]).then(([headResponse]) => {
-            //     //message.FileSize = parseInt(headResponse.get('Content-Length'));
-            //     message.FileName = stripFileName(headResponse.get('content-disposition'));
-            //     cookiesGetAll(link_url);
-            // }).catch((error) => {
-            //     message.FileName = '';
-            //     cookiesGetAll(link_url);
-            // });
         } else if (info.menuItemId === "download_all_links_with_uget") {
             current_browser.tabs.executeScript(null, {
                 file: 'extract.js'
@@ -238,7 +229,6 @@ function createContextMenus() {
  */
 function setDownloadHooks() {
     // Interrupt downloads on creation
-    // debugger
     current_browser.downloads.onCreated.addListener(function (downloadItem) {
         // untested on Chrome
         message.URL = downloadItem.url || downloadItem.finalUrl;
@@ -251,8 +241,7 @@ function setDownloadHooks() {
         ugetFetchPromise(message.URL);
         let ContentType = downloadItem.mime;
         //async untested
-        //console.log(UfileExtension);
-        let UfileExtension = stripExtension(message.URL) || stripExtension(message.FileName);
+        let UfileExtension = stripExtension(message.FileName) || stripExtension(message.URL);
         if (/* isBlackListedURL(link_url) ||*/  isBlackListedContent(UfileExtension, ContentType) || message.FileSize < minFileSizeToInterrupt) {
             clearMessage();
             return;
@@ -284,14 +273,11 @@ function setDownloadHooks() {
             } catch (error) {
                 message.FileName = '';
             }
-            //console.log(details.responseHeaders);
-
             try {
                 message.FileSize = parseInt(details.responseHeaders.find(({ name }) => name.toLowerCase() === 'content-length').value);
             } catch (error) {
                 //// untested/barely tested, should fix akamai no content-length. Probably breaks a tons of other things.
-                //console.log("No content-length")
-                if (details.responseHeaders.find(({ name }) => name.toLowerCase() === 'accept-ranges').value === "bytes") {
+                if (details.responseHeaders.find(({ name }) => name.toLowerCase() === 'accept-ranges').value === 'bytes') {
                     message.FileSize = minFileSizeToInterrupt;
                 } else {
                     //console.log("content-length error -> Line #288-294")
@@ -299,9 +285,7 @@ function setDownloadHooks() {
                     return;
                 }
             }
-            let UfileExtension = stripExtension(details.url) || stripExtension(message.FileName);
-            //console.log(UfileExtension);
-            // Do not interrupt blacklisted items
+            let UfileExtension = stripExtension(message.FileName) || stripExtension(message.URL);
             if (/* isBlackListedURL(details.url) || */ isBlackListedContent(UfileExtension, ContentType) || message.FileSize < minFileSizeToInterrupt) {
                 interruptDownloadwhitelist = false;
                 clearMessage();
@@ -475,7 +459,7 @@ function ugetFetchPromise(url) {
 }
 function stripFileName(content) {
     let FileName = '';
-    if (content != null) {
+    if (content) {
         FileName = content.match(/filename\*?=["']?(?:UTF-\d['"]*)?((['"]).*?\2|[^\";\n]*)/)[1];
     }
     return FileName;
@@ -483,7 +467,7 @@ function stripFileName(content) {
 function stripExtension(url) {
     let FileName = url.split('/').pop();
     let FileNameExt = '';
-    if (FileName != null) {
+    if (FileName) {
         FileNameExt = FileName.slice((FileName.lastIndexOf(".") - 1 >>> 0) + 2);
     }
     return FileNameExt.toLowerCase();
@@ -528,11 +512,11 @@ function parseCookies(cookies_arr) {
  * Update the exclude keywords.
  * Is called from the popup.js.
  */
-function updateExcludeKeywords(exclude) {
-    if (exclude === "") {
-        urlsToSkip = UgetBlDefaultURL;
+function updateExcludeUrls(exclude) {
+    if (!exclude) {
+        urlsToSkip = UgetExcludeDefaultURL;
     } else {
-        urlsToSkip = exclude.split(/[\s,]+/).concat(UgetBlDefaultURL)
+        urlsToSkip = exclude.split(/[\s,]+/).filter(Boolean).concat(UgetExcludeDefaultURL);
     }
     current_browser.storage.sync.set({
         "uget-urls-exclude": exclude
@@ -542,11 +526,11 @@ function updateExcludeKeywords(exclude) {
  * Update the include keywords.
  * Is called from the popup.js.
  */
-function updateIncludeKeywords(include) {
-    if (include === "") {
-        urlsToInterrupt = [];
+function updateIncludeUrls(include) {
+    if (!include) {
+        urlsToInterrupt = UgetIncludeDefaultURL;
     } else {
-        urlsToInterrupt = include.split(/[\s,]+/);
+        urlsToInterrupt = include.split(/[\s,]+/).filter(Boolean).concat(UgetIncludeDefaultURL);
     }
     current_browser.storage.sync.set({
         "uget-urls-include": include
@@ -557,10 +541,11 @@ function updateIncludeKeywords(include) {
  * Is called from the popup.js.
  */
 function updateExcludeMIMEs(exclude) {
-    if (exclude === "") {
-        mimeToSkip = UgetBlDefaultMIME;
+    if (!exclude) {
+        mimeToSkip = UgetExcludeDefaultMIME;
+        //console.log(typeof exclude)
     } else {
-        mimeToSkip = exclude.split(/[\s,]+/).concat(UgetBlDefaultMIME);
+        mimeToSkip = exclude.split(/[\s,]+/).filter(Boolean).concat(UgetExcludeDefaultMIME);
     }
     current_browser.storage.sync.set({
         "uget-mime-exclude": exclude
@@ -571,10 +556,10 @@ function updateExcludeMIMEs(exclude) {
  * Is called from the popup.js.
  */
 function updateIncludeMIMEs(include) {
-    if (include === "") {
-        mimeToInterrupt = UgetWlDefaultMIME;
+    if (!include) {
+        mimeToInterrupt = UgetIncludeDefaultMIME;
     } else {
-        mimeToInterrupt = include.split(/[\s,]+/).concat(UgetWlDefaultMIME);
+        mimeToInterrupt = include.split(/[\s,]+/).filter(Boolean).concat(UgetIncludeDefaultMIME);
     }
     current_browser.storage.sync.set({
         "uget-mime-include": include
@@ -618,6 +603,7 @@ function isBlackListedContent(extension, contype) {
         }
     }
     //} catch (error) { blackListed = false; }
+    //console.log(BlackListed);
     return BlackListed;
 }
 /**
@@ -637,18 +623,23 @@ function isWhiteListedURL(url) {
     return WhiteListed;
 }
 function isWhiteListedContent(extension, contype) {
-    let whiteListed = false;
+    let WhiteListed = false;
     //try {
     if (extension || contype) {
         for (let keyword of mimeToInterrupt) {
             if (extension.includes(keyword.toString()) || contype.includes(keyword.toString())) {
-                whiteListed = true;
+                WhiteListed = true;
                 break;
             }
         }
     }
+    // if (!extension && contype.includes('application')) {
+    //     WhiteListed = true;
+    //     console.log('pouet');
+    // }
     //} catch (error) { whiteListed = false; }
-    return whiteListed;
+    //console.log(WhiteListed);
+    return WhiteListed;
 }
 /**
  * Enable/Disable the plugin and update the plugin icon based on the state.
