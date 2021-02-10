@@ -16,7 +16,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
+  */
 
 extract();
 
@@ -26,18 +26,15 @@ function extract() {
     let url = '';
     for (let i = 0; i < document.links.length; i++) {
         if (document.links[i].href.match(/^(https?\:|ftp\:)/)) {
-            // if (!document.links[i].href.includes('.html')) {
             if (document.links[i].href.split('/').pop().match(/^([^\^?^=^&])+(\.[a-zA-Z0-9]+)?$/)) {
                 url = decodeURI(document.links[i].href);
             }
-            // }
             if (urls.indexOf(url) < 0) {
                 urls.push(url);
             }
         }
     }
-    urls = urls.filter(item => item);
-    //urls.forEach(item => txt += item + '\n');
+    urls = urls.filter(Boolean);
     txt = urls.join('\n');
 
     if (txt !== '') {
