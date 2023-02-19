@@ -18,31 +18,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-var current_browser;
+const uget_browser = window.browser || window.chrome;
 
-try {
-    current_browser = browser;
-    current_browser.runtime.getBrowserInfo().then(
-        function(info) {
-            if (info.name === 'Firefox') {
-                // Do nothing
-            }
-        }
-    );
-} catch (ex) {
-    // Not Firefox
-    current_browser = chrome;
-}
-
-$(document).ready(function() {
+$(document).ready(function () {
     // Show the system status
-    current_browser.runtime.getBackgroundPage(function(backgroundPage) {
-        var state = backgroundPage.getState();
-        if (state == 0) {
+    uget_browser.runtime.getBackgroundPage(function (backgroundPage) {
+        let state = backgroundPage.ugetState();
+        if (state === 0) {
             $('#info').css('display', 'block');
             $('#warn').css('display', 'none');
             $('#error').css('display', 'none');
-        } else if (state == 1) {
+        } else if (state === 1) {
             $('#info').css('display', 'none');
             $('#warn').css('display', 'block');
             $('#error').css('display', 'none');
@@ -53,7 +39,7 @@ $(document).ready(function() {
         }
     });
 
-    current_browser.storage.sync.get(function(items) {
+    uget_browser.storage.sync.get(function (items) {
         $('#urlsToExclude').val(items["uget-urls-exclude"]);
         $('#urlsToInclude').val(items["uget-urls-include"]);
         $('#mimeToExclude').val(items["uget-mime-exclude"]);
@@ -63,45 +49,45 @@ $(document).ready(function() {
     });
 
     // Set event listeners
-    $('#chk_enable').change(function() {
-        var enabled = this.checked;
-        current_browser.runtime.getBackgroundPage(function(backgroundPage) {
+    $('#chk_enable').change(function () {
+        let enabled = this.checked;
+        uget_browser.runtime.getBackgroundPage(function (backgroundPage) {
             backgroundPage.setInterruptDownload(enabled, true);
         });
     });
-    $("#fileSize").on("change paste", function() {
-        var minFileSize = parseInt($(this).val());
+    $("#fileSize").on("change paste", function () {
+        let minFileSize = parseInt($(this).val());
         if (isNaN(minFileSize)) {
             minFileSize = 300;
         } else if (minFileSize < -1) {
             minFileSize = -1;
         }
         $('#fileSize').val(minFileSize);
-        current_browser.runtime.getBackgroundPage(function(backgroundPage) {
+        uget_browser.runtime.getBackgroundPage(function (backgroundPage) {
             backgroundPage.updateMinFileSize(minFileSize * 1024);
         });
     });
-    $("#urlsToExclude").on("change paste", function() {
-        var keywords = $(this).val().trim();
-        current_browser.runtime.getBackgroundPage(function(backgroundPage) {
-            backgroundPage.updateExcludeKeywords(keywords);
+    $("#urlsToExclude").on("change paste", function () {
+        let keywords = $(this).val().trim().replace(/[\s,]+/g, ', ');
+        uget_browser.runtime.getBackgroundPage(function (backgroundPage) {
+            backgroundPage.updateExcludeUrls(keywords);
         });
     });
-    $("#urlsToInclude").on("change paste", function() {
-        var keywords = $(this).val().trim();
-        current_browser.runtime.getBackgroundPage(function(backgroundPage) {
-            backgroundPage.updateIncludeKeywords(keywords);
+    $("#urlsToInclude").on("change paste", function () {
+        let keywords = $(this).val().trim().replace(/[\s,]+/g, ', ');
+        uget_browser.runtime.getBackgroundPage(function (backgroundPage) {
+            backgroundPage.updateIncludeUrls(keywords);
         });
     });
-    $("#mimeToExclude").on("change paste", function() {
-        var keywords = $(this).val().trim();
-        current_browser.runtime.getBackgroundPage(function(backgroundPage) {
+    $("#mimeToExclude").on("change paste", function () {
+        let keywords = $(this).val().trim().replace(/[\s,]+/g, ', ');
+        uget_browser.runtime.getBackgroundPage(function (backgroundPage) {
             backgroundPage.updateExcludeMIMEs(keywords);
         });
     });
-    $("#mimeToInclude").on("change paste", function() {
-        var keywords = $(this).val().trim();
-        current_browser.runtime.getBackgroundPage(function(backgroundPage) {
+    $("#mimeToInclude").on("change paste", function () {
+        let keywords = $(this).val().trim().replace(/[\s,]+/g, ', ');
+        uget_browser.runtime.getBackgroundPage(function (backgroundPage) {
             backgroundPage.updateIncludeMIMEs(keywords);
         });
     });

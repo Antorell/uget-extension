@@ -16,27 +16,27 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
+  */
 
-extract();
-
+//console.log output inside the navigator main_frame dev tools console
+// Uget-Integrator's "uget-integrator.py" basename(unquote(data['FileName'])) replace the %xx escapes
 function extract() {
-    var txt = '';
-    urls = []
-    for (var i = 0; i < document.links.length; i++) {
-        url = document.links[i].href;
-        var valid = /^(ftp|http|https):\/\/[^ "]+$/.test(url);
-        if(valid) {
-            var decodedURL = unescape(url);
-            if(urls.indexOf(decodedURL) < 0) {
-                urls.push(decodedURL);
-                txt += url + '\n';
+    let txt = '';
+    let urls = [];
+    let url = '';
+
+    for (let i = 0; i < document.links.length; i++) {
+        if ((/^https?:|^ftp:/i).test(document.links[i].protocol) && (/\.\w{1,10}$/).test(document.links[i].pathname)) {
+            url = document.links[i].href;
+            // Duplicate check.
+            if (urls.indexOf(url) === -1) {
+                urls.push(url);
             }
         }
     }
-    
-    if(txt !== '') {
-        return {success: true, urls: txt};
-    }
-    return {success: false, urls: ""};
+    urls = urls.filter(Boolean);
+    txt = urls.join('\n');
+    return txt
+        ? { success: true, urls: txt } : { success: false, urls: "" };
 }
+extract();

@@ -20,7 +20,7 @@
 
 body {
     overflow-x: hidden;
-    padding: 10px;
+    padding: 10px 0;
     min-width: 450px;
 }
 
@@ -47,6 +47,11 @@ body {
 .vcenter {
     display: flex;
     align-items: center;
+}
+
+.vleft {
+    display: flex;
+    align-items: left;
 }
 
 p {
@@ -108,16 +113,19 @@ hr {
 }
 
 .row {
-    margin-bottom: 10px;
+    margin-bottom: 5px;
+
 }
 
 .subtitle {
-    margin-top: 5px;
+
     margin-bottom: 0px;
+
 }
 
 .form-control {
     padding: .15rem .75rem;
+    width: 200%;
 }
 
 
@@ -197,8 +205,8 @@ input:checked+.slider:before {
 
 #footer {
     display: table;
-    text-align: center;
-    margin: 0 auto;
+    text-align: left;
+    margin: 0 5 auto;
     line-height: 50%;
     color: #aaa;
     font-size: 10pt;
