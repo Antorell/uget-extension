@@ -30,9 +30,8 @@ const UgetExcludeDefaultMIME = ["xml", "text", "rss", "json", "html", "javascrip
 const UgetExcludeDefaultURL = ["drive.google.com", "docs.google.com"];
 const UgetIncludeDefaultURL = [];
 // const UgetIncludeDefaultURL = ["onedrive.live.com"];
-const ugetHostName = window.browser ? 'com.ugetdm.firefox' : 'com.ugetdm.chrome';
-const uget_browser = window.browser ?? window.chrome;
-const ugetBlockingProperty = window.browser ? { cancel: true } : { redirectUrl: "javascript:" };
+const ugetHostName = 'com.ugetdm.firefox';
+const uget_browser = window.browser;
 var ugetInterruptSwitch = true;
 var ugetIntegratorNotFound = true;
 var ugetIsFoundRedirect = false;
@@ -226,7 +225,7 @@ function ugetOnHeaderReceived(details) {
         // Ignore whitelisted extension/content check when url is whitelisted, doesn't ignore the content/extension blacklist.
         if (ugetMessage.FileSize >= UgetMinFsToInterrupt && (IsURLWhitelisted(ugetMessage.URL, details.originUrl) || !isURLBlacklisted(ugetMessage.URL, details.originUrl))) {
             return !isContentBlacklisted(ugetFileExt) && (IsURLWhitelisted(ugetMessage.URL, details.originUrl) || isContentWhitelisted(ugetFileExt))
-                ? (cookiesGetAll(details.originUrl), ugetBlockingProperty) : ({ responseHeaders: details.responseHeaders }, ugetDeleteListener());
+                ? (cookiesGetAll(details.originUrl), { cancel: true }) : ({ responseHeaders: details.responseHeaders }, ugetDeleteListener());
         }
         // if (IsURLWhitelisted(ugetMessage.URL, details.originUrl) || !isURLBlacklisted(ugetMessage.URL, details.originUrl)) {
         //     if (ugetMessage.FileSize >= UgetMinFsToInterrupt) {
@@ -461,7 +460,7 @@ function changeIcon() {
         // Error
         iconPath = "./icons/icon_error_32.png";
     }
-    uget_browser.browserAction.setIcon({
+    uget_browser.action.setIcon({
         path: iconPath
     });
 }
