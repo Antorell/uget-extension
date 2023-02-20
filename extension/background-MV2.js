@@ -315,11 +315,11 @@ function sendMessageToHost(ugetMessage) {
     chrome.runtime.sendNativeMessage(ugetHostName, ugetMessage, function (response) {
         //clearMessage();
         ugetIntegratorNotFound = !response;
-        if (!ugetIntegratorNotFound && !ugetIntegratorVersion) {
+        if ((!ugetIntegratorNotFound && !ugetIntegratorVersion) || !ugetMessage.URL) {
             ugetIntegratorVersion = response.Version;
             //ugetVersion = response.Uget;
+            changeIcon();
         }
-        changeIcon();
     });
 }
 /**
