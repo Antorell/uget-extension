@@ -14,7 +14,7 @@
     },
     "browser_action": {
         "browser_style": true,
-        "default_icon": "icon_32.png",
+        "default_icon": "icons/icon_32.png",
         "default_popup": "popup.html"
     },
     "commands": {
@@ -29,10 +29,10 @@
     "description": "uGet Browser Integration extension replaces default download manager by uGet Download Manager.",
     "homepage_url": "http://ugetdm.com/",
     "icons": {
-        "32": "icon_32.png",
-        "48": "icon_48.png",
-        "64": "icon_64.png",
-        "128": "icon_128.png"
+        "32": "icons/icon_32.png",
+        "48": "icons/icon_48.png",
+        "64": "icons/icon_64.png",
+        "128": "icons/icon_128.png"
     },
     "manifest_version": 2,
     "minimum_chrome_version": "19.0",
