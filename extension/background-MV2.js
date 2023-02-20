@@ -31,7 +31,6 @@ const UgetExcludeDefaultURL = ["drive.google.com", "docs.google.com"];
 const UgetIncludeDefaultURL = [];
 // const UgetIncludeDefaultURL = ["onedrive.live.com"];
 const ugetHostName = window.browser ? 'com.ugetdm.firefox' : 'com.ugetdm.chrome';
-const uget_browser = window.browser ?? window.chrome;
 const ugetBlockingProperty = window.browser ? { cancel: true } : { redirectUrl: "javascript:" };
 var ugetInterruptSwitch = true;
 var ugetIntegratorNotFound = true;
@@ -69,7 +68,7 @@ function start() {
  */
 function initialize() {
     // Set keyboard shortcut listener
-    uget_browser.commands.onCommand.addListener(function (command) {
+    chrome.commands.onCommand.addListener(function (command) {
         if ("toggle-interruption" === command) {
             // Toggle
             setInterruptDownload(!ugetInterruptSwitch, true);
@@ -83,7 +82,7 @@ function initialize() {
  * If no preferences found, initialize with default values.
  */
 function readStorage() {
-    uget_browser.storage.sync.get(function (items) {
+    chrome.storage.sync.get(function (items) {
         // Read the storage for excluded keywords
         updateExcludeUrls(items["uget-urls-exclude"]);
         // Read the storage for included keywords
@@ -98,7 +97,7 @@ function readStorage() {
         if (!items["uget-interrupt"]) {
             // Keep the value string
             //???? When is it supposed be empty? On first install?
-            uget_browser.storage.sync.set({
+            chrome.storage.sync.set({
                 "uget-interrupt": 'true'
             });
         } else {
@@ -111,30 +110,30 @@ function readStorage() {
  * Create required context menus and set listeners.
  */
 function createContextMenus() {
-    uget_browser.contextMenus.create({
+    chrome.contextMenus.create({
         title: 'Download with uGet',
         id: "download_with_uget",
         contexts: ['link']
     });
-    uget_browser.contextMenus.create({
+    chrome.contextMenus.create({
         title: 'Download all links with uGet',
         id: "download_all_links_with_uget",
         contexts: ['page']
     });
-    // uget_browser.contextMenus.create({
+    // chrome.contextMenus.create({
     //     title: 'Download media with uGet',
     //     id: "download_media_with_uget",
     //     enabled: false,
     //     contexts: ['page']
     // });
-    uget_browser.contextMenus.onClicked.addListener(function (info, tab) {
+    chrome.contextMenus.onClicked.addListener(function (info, tab) {
         "use strict";
         if (info.menuItemId === "download_with_uget") {
             ugetMessage.URL = info.linkUrl;
             ugetMessage.Referer = info.pageUrl;
             cookiesGetAll(info.pageUrl);
         } else if (info.menuItemId === "download_all_links_with_uget") {
-            uget_browser.tabs.executeScript(null, {
+            chrome.tabs.executeScript(null, {
                 file: 'extract.js'
             }, function (results) {
                 if (results[0].success) {
@@ -177,7 +176,7 @@ function createContextMenus() {
  */
 function setDownloadHooks() {
 
-    uget_browser.webRequest.onBeforeRequest.addListener(
+    chrome.webRequest.onBeforeRequest.addListener(
         ugetBeforeRequest,
         {
             urls: ['https://*/*', 'http://*/*', 'ftp://*/*'],
@@ -192,7 +191,7 @@ function setDownloadHooks() {
         }
     }
     function ugetIntercepted() {
-        uget_browser.webRequest.onHeadersReceived.addListener(ugetOnHeaderReceived,
+        chrome.webRequest.onHeadersReceived.addListener(ugetOnHeaderReceived,
             {
                 urls: ['https://*/*', 'http://*/*', 'ftp://*/*'],
                 types: ['main_frame', 'sub_frame']
@@ -276,8 +275,8 @@ function ugetStripHostname(url) {
     return url ? new URL(url).hostname : undefined;
 }
 function ugetDeleteListener() {
-    return uget_browser.webRequest.onHeadersReceived.hasListener(ugetOnHeaderReceived)
-        ? (uget_browser.webRequest.onHeadersReceived.removeListener(ugetOnHeaderReceived), clearMessage()) : undefined;
+    return chrome.webRequest.onHeadersReceived.hasListener(ugetOnHeaderReceived)
+        ? (chrome.webRequest.onHeadersReceived.removeListener(ugetOnHeaderReceived), clearMessage()) : undefined;
 }
 /**
  * Check whether or not to interrupt the given url.
@@ -303,7 +302,7 @@ function isContentWhitelisted(extension) {
 function setInterruptDownload(interrupt, writeToStorage) {
     ugetInterruptSwitch = interrupt;
     if (writeToStorage) {
-        uget_browser.storage.sync.set({
+        chrome.storage.sync.set({
             "uget-interrupt": interrupt.toString()
         });
     }
@@ -313,7 +312,7 @@ function setInterruptDownload(interrupt, writeToStorage) {
  * Send ugetMessage to uget-integrator
  */
 function sendMessageToHost(ugetMessage) {
-    uget_browser.runtime.sendNativeMessage(ugetHostName, ugetMessage, function (response) {
+    chrome.runtime.sendNativeMessage(ugetHostName, ugetMessage, function (response) {
         //clearMessage();
         ugetIntegratorNotFound = !response;
         if (!ugetIntegratorNotFound && !ugetIntegratorVersion) {
@@ -375,7 +374,7 @@ function postParams(source) {
  * Parse the cookies and send the ugetMessage to the native host.
  */
 function cookiesGetAll(url) {
-    return uget_browser.cookies.getAll({ 'url': ugetRootURL(url) }, parseCookies);
+    return chrome.cookies.getAll({ 'url': ugetRootURL(url) }, parseCookies);
 }
 function parseCookies(cookies_arr) {
     let cookies = '';
@@ -402,7 +401,7 @@ function parseCookies(cookies_arr) {
  */
 function updateExcludeUrls(exclude) {
     ugetUrlsToSkip = exclude ? exclude.toLowerCase().split(/[\s,]+/).filter(Boolean).concat(UgetExcludeDefaultURL) : UgetExcludeDefaultURL;
-    uget_browser.storage.sync.set({
+    chrome.storage.sync.set({
         "uget-urls-exclude": exclude
     });
 }
@@ -412,7 +411,7 @@ function updateExcludeUrls(exclude) {
  */
 function updateIncludeUrls(include) {
     ugetUrlsToInterrupt = include ? include.toLowerCase().split(/[\s,]+/).filter(Boolean).concat(UgetIncludeDefaultURL) : UgetIncludeDefaultURL;
-    uget_browser.storage.sync.set({
+    chrome.storage.sync.set({
         "uget-urls-include": include
     });
 }
@@ -422,7 +421,7 @@ function updateIncludeUrls(include) {
  */
 function updateExcludeMIMEs(exclude) {
     ugetMimeToSkip = exclude ? exclude.toLowerCase().split(/[\s,]+/).filter(Boolean).concat(UgetExcludeDefaultMIME) : UgetExcludeDefaultMIME;
-    uget_browser.storage.sync.set({
+    chrome.storage.sync.set({
         "uget-mime-exclude": exclude
     });
 }
@@ -432,7 +431,7 @@ function updateExcludeMIMEs(exclude) {
  */
 function updateIncludeMIMEs(include) {
     ugetMimeToInterrupt = include ? include.toLowerCase().split(/[\s,]+/).filter(Boolean).concat(UgetIncludeDefaultMIME) : UgetIncludeDefaultMIME;
-    uget_browser.storage.sync.set({
+    chrome.storage.sync.set({
         "uget-mime-include": include
     });
 }
@@ -442,7 +441,7 @@ function updateIncludeMIMEs(include) {
  */
 function updateMinFileSize(size) {
     UgetMinFsToInterrupt = size;
-    uget_browser.storage.sync.set({
+    chrome.storage.sync.set({
         "uget-min-file-size": size
     });
 }
@@ -461,7 +460,7 @@ function changeIcon() {
         // Error
         iconPath = "./icons/icon_error_32.png";
     }
-    uget_browser.browserAction.setIcon({
+    chrome.browserAction.setIcon({
         path: iconPath
     });
 }
@@ -470,14 +469,14 @@ function changeIcon() {
  * @param {*int} tabId
  */
 // function checkForYoutube(tabId, disableIfNot) {
-//     uget_browser.tabs.get(tabId, function (tab) {
+//     chrome.tabs.get(tabId, function (tab) {
 //         let isYoutube = tab['url'] && tab['url'].includes('/www.youtube.com/watch?v=')
 //         if (isYoutube) {
-//             uget_browser.contextMenus.update("download_media_with_uget", {
+//             chrome.contextMenus.update("download_media_with_uget", {
 //                 enabled: true
 //             });
 //         } else if (disableIfNot) {
-//             uget_browser.contextMenus.update("download_media_with_uget", {
+//             chrome.contextMenus.update("download_media_with_uget", {
 //                 enabled: false
 //             });
 //         }
@@ -487,10 +486,10 @@ function changeIcon() {
  * Grab videos and add them to ugetMediaInTab.
  */
 // function enableVideoGrabber() {
-//     uget_browser.tabs.onActivated.addListener(function (activeInfo) {
+//     chrome.tabs.onActivated.addListener(function (activeInfo) {
 //         if (ugetMediaInTab[activeInfo['tabId']] != undefined) {
 //             // Media already detected
-//             uget_browser.contextMenus.update("download_media_with_uget", {
+//             chrome.contextMenus.update("download_media_with_uget", {
 //                 enabled: true
 //             });
 //         } else {
@@ -498,12 +497,12 @@ function changeIcon() {
 //             checkForYoutube(activeInfo['tabId'], true);
 //         }
 //     });
-//     uget_browser.tabs.onRemoved.addListener(function (tabId, removeInfo) {
+//     chrome.tabs.onRemoved.addListener(function (tabId, removeInfo) {
 //         if (ugetMediaInTab[tabId]) {
 //             delete ugetMediaInTab[tabId];
 //         }
 //     });
-//     uget_browser.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+//     chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 //         if (changeInfo['status'] === 'loading') {
 //             // Loading a new page
 //             delete ugetMediaInTab[tabId];
@@ -511,7 +510,7 @@ function changeIcon() {
 //         // Check for Youtube
 //         checkForYoutube(tabId, false);
 //     });
-//     uget_browser.webRequest.onResponseStarted.addListener(function (details) {
+//     chrome.webRequest.onResponseStarted.addListener(function (details) {
 //         let content_url = details['url'];
 //         let type = details['type'];
 //         if (type === 'media' || content_url.includes('mp4')) {
@@ -522,7 +521,7 @@ function changeIcon() {
 //                 ugetMediaInTab[tabId] = mediaSet;
 //             }
 //             mediaSet.add(content_url);
-//             uget_browser.contextMenus.update("download_media_with_uget", {
+//             chrome.contextMenus.update("download_media_with_uget", {
 //                 enabled: true
 //             });
 //         }
