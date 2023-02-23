@@ -255,7 +255,7 @@ function ugetFindResponseHeader(responsedetails, header) {
 function ugetContentDispFilename(content) {
     // Uget-Integrator's "uget-integrator.py" basename(unquote(data['FileName'])) replace the %xx escapes
     return (/filename\*?=./i).test(content)
-        ? content.split(';', 2).pop().match(/(?<=filename\*?=["'\\]{0,2})(?:UTF-\d'{2})?(?<file>[^"'\\].+\.\w{1,10}\b)/i).pop() : '';
+        ? content.split(';', 2).pop().match(/(?<=filename\*?=["'\\]{0,2})(?:UTF-\d'{2})?([^"'\\]+\.\w{1,10})/i).pop() : '';
 }
 function ugetStripExtension(urlfln) {
     urlfln = urlfln.toLowerCase();
