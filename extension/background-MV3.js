@@ -208,8 +208,11 @@ function setDownloadHooks() {
 function ugetOnHeaderReceived(details) {
     // details.responseHeaders -> [Array{Json}]
     // mydetails = details;
-    ugetIsFoundRedirect = details.statusCode === 302 ? true : false;
     let contentType = (ugetFindResponseHeader(details.responseHeaders, 'content-type') ?? 'text/html');
+    if (details.statusCode === 302) {
+        ugetIsFoundRedirect = true;
+        contentType = 'text/html';
+    }
     if (!contentType.includes('text/')) {
         ugetMessage.URL = details.url;
         ugetMessage.Referer = details.originUrl || '';
