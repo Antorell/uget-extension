@@ -187,6 +187,7 @@ function setDownloadHooks() {
     function ugetBeforeRequest(requestdetails) {
         if ((ugetPreTriage(requestdetails.url) || IsURLWhitelisted(requestdetails.url, (requestdetails.originUrl ?? requestdetails.initiator)) || ugetIsFoundRedirect)
             && ugetInterruptSwitch && !ugetIntegratorNotFound) {
+            ugetIsFoundRedirect = false;
             ugetIntercepted();
         }
     }
