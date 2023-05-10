@@ -224,14 +224,14 @@ function ugetOnHeaderReceived(details) {
             ? contentLength : contentType.includes('application/')
                 ? UgetMinFsToInterrupt + 1024 : 1;
         // Ignore whitelisted extension/content check when url is whitelisted, doesn't ignore the content/extension blacklist.
-        if (ugetMessage.FileSize >= UgetMinFsToInterrupt && (IsURLWhitelisted(ugetMessage.URL, details.initiator)
-            || !isURLBlacklisted(ugetMessage.URL, details.initiator))) {
-            // Edge Fix: details.initiator breaks some dl sites that requirre the full url. 
-            chrome.tabs.query({ active: true, lastFocusedWindow: true }, function (tabs) {
-                ugetMessage.Referer = tabs[0].url || tabs[0].pendingUrl || details.initiator;
-            });
-            return !isContentBlacklisted(ugetFileExt) && (IsURLWhitelisted(ugetMessage.URL, details.initiator) || isContentWhitelisted(ugetFileExt))
-                ? (cookiesGetAll(details.initiator), { redirectUrl: "javascript:" }) : ({ responseHeaders: details.responseHeaders }, ugetDeleteListener());
+        if (ugetMessage.FileSize >= UgetMinFsToInterrupt && (IsURLWhitelisted(ugetMessage.URL, details.initiator) || !isURLBlacklisted(ugetMessage.URL, details.initiator))) {
+            if (!isContentBlacklisted(ugetFileExt) && (IsURLWhitelisted(ugetMessage.URL, details.initiator) || isContentWhitelisted(ugetFileExt))) {
+                // Edge Fix: details.initiator breaks some dl sites that requirre the full url. 
+                chrome.tabs.query({ active: true, lastFocusedWindow: true }, function (tabs) {
+                    ugetMessage.Referer = tabs[0].url || tabs[0].pendingUrl || details.initiator;
+                });
+                return (cookiesGetAll(details.initiator), { redirectUrl: "javascript:" });
+            }
         }
         // if (IsURLWhitelisted(ugetMessage.URL, details.originUrl) || !isURLBlacklisted(ugetMessage.URL, details.originUrl)) {
         //     if (ugetMessage.FileSize >= UgetMinFsToInterrupt) {
