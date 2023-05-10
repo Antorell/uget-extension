@@ -26,17 +26,14 @@ const UGET_REQ_INTEGRATOR_VERSION = "1.0.0";
 const UgetIncludeDefaultMIME = ["3gp", "7z", "aac", "apk", "appx", "appxbundle", "avi", "bin", "bz2", "cab", "dat", "deb", "dmg", "esd",
     "exe", "f4v", "flac", "flv", "gz", "iso", "lzh", "img", "m4a", "m4p", "mkv", "mov", "mp3", "mp4", "mpeg", "mpg", "msi", "msu",
     "msixbundle", "ogg", "ogv", "rar", "rmvb", "rpm", "tar", "tgz", "vmdk", "wav", "webm", "wma", "wmv", "xz", "matroska", "z", "zip"];
-const UgetExcludeDefaultMIME = ["xml", "text", "rss", "json", "html", "javascript"];
+const UgetExcludeDefaultMIME = ["xml", "text", "rss", "json", "html", "javascript", "nfo", "torrent", "srt"];
 const UgetExcludeDefaultURL = ["drive.google.com", "docs.google.com"];
 const UgetIncludeDefaultURL = [];
 // const UgetIncludeDefaultURL = ["onedrive.live.com"];
-const ugetHostName = window.browser ? 'com.ugetdm.firefox' : 'com.ugetdm.chrome';
-const ugetBlockingProperty = window.browser ? { cancel: true } : { redirectUrl: "javascript:" };
 var ugetInterruptSwitch = true;
 var ugetIntegratorNotFound = true;
 var ugetIsFoundRedirect = false;
 var ugetIntegratorVersion;
-// var filter = [];
 var UgetMinFsToInterrupt = 300 * 1024; // 300 KB
 var ugetUrlsToSkip = [];
 var ugetUrlsToInterrupt = [];
@@ -54,8 +51,6 @@ var ugetMessage = {
     UserAgent: navigator.userAgent,
     Version: UGET_EXTENSION_VERSION
 };
-//////////// debug valiable
-// var mydetails;
 
 function start() {
     initialize();
@@ -180,12 +175,13 @@ function setDownloadHooks() {
         ugetBeforeRequest,
         {
             urls: ['https://*/*', 'http://*/*', 'ftp://*/*'],
-            types: ['main_frame', 'sub_frame']
+            // types: ['main_frame', 'sub_frame']
+            types: ['main_frame']
         }
     );
     //infinite loops when onBeforeRequest.addListener(function (mydonkeyass){
     function ugetBeforeRequest(requestdetails) {
-        if ((ugetPreTriage(requestdetails.url) || IsURLWhitelisted(requestdetails.url, (requestdetails.originUrl ?? requestdetails.initiator)) || ugetIsFoundRedirect)
+        if ((ugetPreTriage(requestdetails.url) || IsURLWhitelisted(requestdetails.url, requestdetails.initiator) || ugetIsFoundRedirect)
             && ugetInterruptSwitch && !ugetIntegratorNotFound) {
             ugetIsFoundRedirect = false;
             ugetIntercepted();
@@ -195,7 +191,8 @@ function setDownloadHooks() {
         chrome.webRequest.onHeadersReceived.addListener(ugetOnHeaderReceived,
             {
                 urls: ['https://*/*', 'http://*/*', 'ftp://*/*'],
-                types: ['main_frame', 'sub_frame']
+                // types: ['main_frame', 'sub_frame']
+                types: ['main_frame']
             }, ['responseHeaders', 'blocking']
         );
     }
@@ -208,9 +205,6 @@ function setDownloadHooks() {
 /*    onHeadersReceived.addListener(function(myass)      */
 
 function ugetOnHeaderReceived(details) {
-    // details.responseHeaders -> [Array{Json}]
-    // mydetails = details;
-    // ugetIsFoundRedirect = details.statusCode === 302 ? true : false;
     let contentType = (ugetFindResponseHeader(details.responseHeaders, 'content-type') ?? 'text/html');
     if (details.statusCode === 302) {
         ugetIsFoundRedirect = true;
@@ -218,19 +212,26 @@ function ugetOnHeaderReceived(details) {
     }
     if (!contentType.includes('text/')) {
         ugetMessage.URL = details.url;
-        ugetMessage.Referer = details.originUrl || '';
+        // chrome.tabs.get(details.tabId, function (loadedTab) {
+        //     ugetMessage.Referer = loadedTab.url ?? loadedTab.pendingUrl;
+        // })
+        // ugetMessage.Referer = details.initiator || details.url;
         ugetMessage.FileName = ugetContentDispFilename(ugetFindResponseHeader(details.responseHeaders, 'content-disposition'));
         let ugetFileExt = ugetStripExtension(ugetMessage.FileName || ugetMessage.URL || contentType);
         let contentLength = parseInt(ugetFindResponseHeader(details.responseHeaders, 'content-length'));
         // fix this/find better way -> cdn dl without a content lengh response header 
-        // so it's finally causing issues I could notice. 
         ugetMessage.FileSize = contentLength
             ? contentLength : contentType.includes('application/')
-                ? UgetMinFsToInterrupt + 1024 : 0;
+                ? UgetMinFsToInterrupt + 1024 : 1;
         // Ignore whitelisted extension/content check when url is whitelisted, doesn't ignore the content/extension blacklist.
-        if (ugetMessage.FileSize >= UgetMinFsToInterrupt && (IsURLWhitelisted(ugetMessage.URL, details.originUrl) || !isURLBlacklisted(ugetMessage.URL, details.originUrl))) {
-            return !isContentBlacklisted(ugetFileExt) && (IsURLWhitelisted(ugetMessage.URL, details.originUrl) || isContentWhitelisted(ugetFileExt))
-                ? (cookiesGetAll(details.originUrl), ugetBlockingProperty) : ({ responseHeaders: details.responseHeaders }, ugetDeleteListener());
+        if (ugetMessage.FileSize >= UgetMinFsToInterrupt && (IsURLWhitelisted(ugetMessage.URL, details.initiator)
+            || !isURLBlacklisted(ugetMessage.URL, details.initiator))) {
+            // Edge Fix: details.initiator breaks some dl sites that requirre the full url. 
+            chrome.tabs.query({ active: true, lastFocusedWindow: true }, function (tabs) {
+                ugetMessage.Referer = tabs[0].url || tabs[0].pendingUrl || details.initiator;
+            });
+            return !isContentBlacklisted(ugetFileExt) && (IsURLWhitelisted(ugetMessage.URL, details.initiator) || isContentWhitelisted(ugetFileExt))
+                ? (cookiesGetAll(details.initiator), { redirectUrl: "javascript:" }) : ({ responseHeaders: details.responseHeaders }, ugetDeleteListener());
         }
         // if (IsURLWhitelisted(ugetMessage.URL, details.originUrl) || !isURLBlacklisted(ugetMessage.URL, details.originUrl)) {
         //     if (ugetMessage.FileSize >= UgetMinFsToInterrupt) {
@@ -274,10 +275,10 @@ function ugetStripExtension(urlfln) {
             ? urlfln.split(/[;/]/, 2).pop().split('-', 2).pop() : '';
 }
 function ugetRootURL(url) {
-    return url ? new URL(url).origin : undefined;
+    return url && url !== "null" ? new URL(url).origin : undefined;
 }
 function ugetStripHostname(url) {
-    return url ? new URL(url).hostname : undefined;
+    return url && url !== "null" ? new URL(url).hostname : undefined;
 }
 function ugetDeleteListener() {
     return chrome.webRequest.onHeadersReceived.hasListener(ugetOnHeaderReceived)
@@ -317,7 +318,7 @@ function setInterruptDownload(interrupt, writeToStorage) {
  * Send ugetMessage to uget-integrator
  */
 function sendMessageToHost(ugetMessage) {
-    chrome.runtime.sendNativeMessage(ugetHostName, ugetMessage, function (response) {
+    chrome.runtime.sendNativeMessage('com.ugetdm.chrome', ugetMessage, function (response) {
         //clearMessage();
         ugetIntegratorNotFound = !response;
         if ((!ugetIntegratorNotFound && !ugetIntegratorVersion) || !ugetMessage.URL) {
@@ -325,6 +326,7 @@ function sendMessageToHost(ugetMessage) {
             //ugetVersion = response.Uget;
             changeIcon();
         }
+
     });
 }
 /**
