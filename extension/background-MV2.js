@@ -227,9 +227,9 @@ function ugetOnHeaderReceived(details) {
         if (ugetMessage.FileSize >= UgetMinFsToInterrupt && (IsURLWhitelisted(ugetMessage.URL, details.initiator) || !isURLBlacklisted(ugetMessage.URL, details.initiator))) {
             if (!isContentBlacklisted(ugetFileExt) && (IsURLWhitelisted(ugetMessage.URL, details.initiator) || isContentWhitelisted(ugetFileExt))) {
                 // Edge Fix: details.initiator breaks some dl sites that requirre the full url. 
-                chrome.tabs.query({ active: true, lastFocusedWindow: true }, function (tabs) {
-                    ugetMessage.Referer = tabs[0].url || tabs[0].pendingUrl || details.initiator;
-                });
+                chrome.tabs.get(details.tabId, function (loadedTab) {
+                    ugetMessage.Referer = loadedTab.url || loadedTab.pendingUrl;
+                })
                 return (cookiesGetAll(details.initiator), { redirectUrl: "javascript:" });
             }
         }
