@@ -11,7 +11,7 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the2
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
@@ -24,7 +24,7 @@
 const UGET_EXTENSION_VERSION = "2.1.3";
 const UGET_REQ_INTEGRATOR_VERSION = "1.0.0";
 const UgetIncludeDefaultMIME = ["3gp", "7z", "aac", "apk", "appx", "appxbundle", "avi", "bin", "bz2", "cab", "dat", "deb", "dmg", "esd",
-    "exe", "f4v", "flac", "flv", "gz", "iso", "lzh", "img", "m4a", "m4p", "mkv", "mov", "mp3", "mp4", "mpeg", "mpg", "msi", "msu",
+    "exe", "f4v", "flac", "flv", "gz", "iso", "lzh", "img", "m4a", "m4b", "m4p", "mkv", "mov", "mp3", "mp4", "mpeg", "mpg", "msi", "msu",
     "msixbundle", "ogg", "ogv", "rar", "rmvb", "rpm", "tar", "tgz", "vmdk", "wav", "webm", "wma", "wmv", "xz", "matroska", "z", "zip"];
 const UgetExcludeDefaultMIME = ["xml", "text", "rss", "json", "html", "javascript", "nfo", "torrent", "srt"];
 const UgetExcludeDefaultURL = ["drive.google.com", "docs.google.com"];
@@ -39,7 +39,6 @@ var ugetUrlsToSkip = [];
 var ugetUrlsToInterrupt = [];
 var ugetMimeToSkip = [];
 var ugetMimeToInterrupt = [];
-//var ugetMediaInTab = {}; //
 var ugetMessage = {
     Batch: false,
     Cookies: '',
@@ -51,12 +50,10 @@ var ugetMessage = {
     UserAgent: navigator.userAgent,
     Version: UGET_EXTENSION_VERSION
 };
-
 function start() {
     initialize();
     readStorage();
     setDownloadHooks();
-    // enableVideoGrabber();
 }
 /**
  * Initialize the variables.
@@ -115,12 +112,6 @@ function createContextMenus() {
         id: "download_all_links_with_uget",
         contexts: ['page']
     });
-    // chrome.contextMenus.create({
-    //     title: 'Download media with uGet',
-    //     id: "download_media_with_uget",
-    //     enabled: false,
-    //     contexts: ['page']
-    // });
     chrome.contextMenus.onClicked.addListener(function (info, tab) {
         "use strict";
         if (info.menuItemId === "download_with_uget") {
@@ -139,130 +130,61 @@ function createContextMenus() {
                 }
             });
         }
-        // else if (info.menuItemId === "download_media_with_uget") {
-        //     if ((info.pageUrl).includes('/www.youtube.com/watch?v=')) {
-        //         // Youtube never tested. 
-        //         ugetMessage.URL = info.pageUrl;
-        //         ugetMessage.Referer = info.pageUrl;
-        //         cookiesGetAll(info.pageUrl);
-        //     } else {
-        //         // Other videos
-        //         let media_set = ugetMediaInTab[tab['id']];
-        //         if (media_set) {
-        //             let urls = Array.from(media_set);
-        //             let no_or_urls = urls.length;
-        //             if (no_or_urls == 1) {
-        //                 ugetMessage.URL = urls[0];
-        //                 ugetMessage.Referer = info.pageUrl;
-        //                 cookiesGetAll(info.pageUrl);
-        //             } else if (no_or_urls > 1) {
-        //                 ugetMessage.URL = urls.join('\n');
-        //                 ugetMessage.Referer = info.pageUrl;
-        //                 ugetMessage.Batch = true;
-        //                 cookiesGetAll(info.pageUrl);
-        //             }
-        //         }
-        //     }
-        // }
     });
 }
 /**
  * Set hooks to interrupt downloads.
  */
 function setDownloadHooks() {
-
-    chrome.webRequest.onBeforeRequest.addListener(
-        ugetBeforeRequest,
+    chrome.webRequest.onHeadersReceived.addListener(ugetOnHeaderReceived,
         {
-            urls: ['https://*/*', 'http://*/*', 'ftp://*/*'],
+            urls: ['https://*/*', 'http://*/*'],
             // types: ['main_frame', 'sub_frame']
             types: ['main_frame']
-        }
+        }, ['responseHeaders', 'blocking']
     );
-    //infinite loops when onBeforeRequest.addListener(function (mydonkeyass){
-    function ugetBeforeRequest(requestdetails) {
-        if ((ugetPreTriage(requestdetails.url) || IsURLWhitelisted(requestdetails.url, requestdetails.initiator) || ugetIsFoundRedirect)
-            && ugetInterruptSwitch && !ugetIntegratorNotFound) {
-            ugetIsFoundRedirect = false;
-            ugetIntercepted();
-        }
-    }
-    function ugetIntercepted() {
-        chrome.webRequest.onHeadersReceived.addListener(ugetOnHeaderReceived,
-            {
-                urls: ['https://*/*', 'http://*/*', 'ftp://*/*'],
-                // types: ['main_frame', 'sub_frame']
-                types: ['main_frame']
-            }, ['responseHeaders', 'blocking']
-        );
-    }
 }
 /*********************************************************/
 /*       DownloadHook  onHeadersReceived                 */
-/*      keep outside setDownloadHooks(){}                */
-/*     loads multiple instances of uget                  */
-/*    if inside onHeadersReceived.addListener            */
-/*    onHeadersReceived.addListener(function(myass)      */
-
+/*********************************************************/
 function ugetOnHeaderReceived(details) {
-    let contentType = (ugetFindResponseHeader(details.responseHeaders, 'content-type') ?? 'text/html');
-    if (details.statusCode === 302) {
-        ugetIsFoundRedirect = true;
-        contentType = 'text/html';
-    }
-    if (!contentType.includes('text/')) {
-        ugetMessage.URL = details.url;
-        // chrome.tabs.get(details.tabId, function (loadedTab) {
-        //     ugetMessage.Referer = loadedTab.url ?? loadedTab.pendingUrl;
-        // })
-        // ugetMessage.Referer = details.initiator || details.url;
-        ugetMessage.FileName = ugetContentDispFilename(ugetFindResponseHeader(details.responseHeaders, 'content-disposition'));
-        let ugetFileExt = ugetStripExtension(ugetMessage.FileName || ugetMessage.URL || contentType);
-        let contentLength = parseInt(ugetFindResponseHeader(details.responseHeaders, 'content-length'));
-        // fix this/find better way -> cdn dl without a content lengh response header 
-        ugetMessage.FileSize = contentLength
-            ? contentLength : contentType.includes('application/')
-                ? UgetMinFsToInterrupt + 1024 : 1;
-        // Ignore whitelisted extension/content check when url is whitelisted, doesn't ignore the content/extension blacklist.
-        if (ugetMessage.FileSize >= UgetMinFsToInterrupt && (IsURLWhitelisted(ugetMessage.URL, details.initiator) || !isURLBlacklisted(ugetMessage.URL, details.initiator))) {
-            if (!isContentBlacklisted(ugetFileExt) && (IsURLWhitelisted(ugetMessage.URL, details.initiator) || isContentWhitelisted(ugetFileExt))) {
-                // Edge Fix: details.initiator breaks some dl sites that requirre the full url. 
-                chrome.tabs.get(details.tabId, function (loadedTab) {
-                    ugetMessage.Referer = loadedTab.url || loadedTab.pendingUrl;
-                })
-                return (cookiesGetAll(details.initiator), { redirectUrl: "javascript:" });
+    if (ugetInterruptSwitch && ugetPreTriage(details.url)) {
+        let contentType = ugetFilterRespHeader(details.responseHeaders, 'content-type')[0]?.value
+            ?? (ugetFilterRespHeader(details.responseHeaders, 'content-disposition', 'accept-ranges')[1]?.name
+                ? 'application/octet-stream' : 'text/html');
+        if (!(/^text\/|^image\//i).test(contentType) && !isURLBlacklisted(details.initiator, details.url)) {
+            ugetMessage.URL = details.url;
+            ugetMessage.FileName = ugetContentDispFilename(ugetFilterRespHeader(details.responseHeaders, 'content-disposition')[0]?.value)
+            let ugetFileExt = ugetStripExtension(ugetMessage.FileName || details.url);
+            let contentLength = parseInt(ugetFilterRespHeader(details.responseHeaders, 'content-length')[0]?.value);
+            // fix this/find better way -> cdn dl without a content lengh response header 
+            ugetMessage.FileSize = contentLength
+                ? contentLength : contentType.includes('application/')
+                    ? UgetMinFsToInterrupt + 1024 : 0;
+            ugetMessage.Referer = details.initiator || details.url;
+            if (ugetMessage.FileSize >= UgetMinFsToInterrupt) {
+                if (!isContentBlacklisted(ugetFileExt) && (IsURLWhitelisted(details.initiator, details.url) || isContentWhitelisted(ugetFileExt))) {
+                    return (cookiesGetAll(details.initiator), { redirectUrl: "javascript:" });
+                }
             }
         }
-        // if (IsURLWhitelisted(ugetMessage.URL, details.originUrl) || !isURLBlacklisted(ugetMessage.URL, details.originUrl)) {
-        //     if (ugetMessage.FileSize >= UgetMinFsToInterrupt) {
-        //         console.log('bob')
-        //         return !isContentBlacklisted(ugetFileExt) && (IsURLWhitelisted(ugetMessage.URL, details.originUrl) || isContentWhitelisted(ugetFileExt))
-        //             ? (cookiesGetAll(details.originUrl), ugetBlockingProperty) : ({ responseHeaders: details.responseHeaders }, ugetDeleteListener());
-        //     }
-        // }
-        //test 2
-        // Ignore content/extension whitelist/blacklist checks when url is whitelisted
-        // if (IsURLWhitelisted(ugetMessage.URL, details.originUrl) || !isURLBlacklisted(ugetMessage.URL, details.originUrl)) {
-        //     return UgetMinFsToInterrupt <= ugetMessage.FileSize
-        //         && (IsURLWhitelisted(ugetMessage.URL, details.originUrl) || isContentWhitelisted(ugetFileExt) && !isContentBlacklisted(ugetFileExt))
-        //         ? (cookiesGetAll(details.originUrl), { cancel: true }, { redirectUrl: "javascript:" }) : ({ responseHeaders: details.responseHeaders }, ugetDeleteListener());
-        // }
     }
-    return ({ responseHeaders: details.responseHeaders }, ugetDeleteListener());
+    return ({ responseHeaders: details.responseHeaders });
 }
+///////////////////////////////////////////////////////
 ////////////////// Utility Functions //////////////////
 function ugetPreTriage(url) {
     url = new URL(url);
-    return (/(?=\.\w{1,10}$)(?!\.html?$|\.srf$|\.js$)/i).test(url.pathname) || (/download|file(?:name|id)/i).test(url.search);
+    return !(/\/$|\.html?$|\.srf$/).test(url.pathname) && ((/\.\w{1,10}$/).test(url.pathname) || (/download|file(?:name|id|Install)/i).test(url.search));
 }
-function ugetFindResponseHeader(responsedetails, header) {
-    let isHeader = responsedetails.find(jsonarr => jsonarr.name.toLowerCase() == header);
-    return isHeader ? isHeader.value : undefined;
+function ugetFilterRespHeader(responseHeaders, header1, header2) {
+    return responseHeaders.filter(item => item.name?.toLowerCase() === header1 || item.name?.toLowerCase() === header2)
 }
 function ugetContentDispFilename(content) {
     // Uget-Integrator's "uget-integrator.py" basename(unquote(data['FileName'])) replace the %xx escapes
     return (/filename\*?=./i).test(content)
-        ? content.split(';', 2).pop().match(/(?<=filename\*?=["'\\]{0,2})(?:UTF-\d'{2})?([^"'\\]+\.\w{1,10})/i).pop() : '';
+        // ? content.split(';', 2).pop().match(/(?<=filename\*?=["'\\]{0,2})(?:UTF-\d'{2})?([^"'\\]+\.\w{1,10})/i).pop() : '';
+        ? content.split(';', 2).pop().match(/[^"'=\\]+\.\w{1,10}/).pop() : '';
 }
 function ugetStripExtension(urlfln) {
     urlfln = urlfln.toLowerCase();
@@ -280,18 +202,14 @@ function ugetRootURL(url) {
 function ugetStripHostname(url) {
     return url && url !== "null" ? new URL(url).hostname : undefined;
 }
-function ugetDeleteListener() {
-    return chrome.webRequest.onHeadersReceived.hasListener(ugetOnHeaderReceived)
-        ? (chrome.webRequest.onHeadersReceived.removeListener(ugetOnHeaderReceived), clearMessage()) : undefined;
-}
 /**
  * Check whether or not to interrupt the given url.
  */
-function isURLBlacklisted(url, originurl) {
-    return ugetUrlsToSkip.includes(ugetStripHostname(url)) || ugetUrlsToSkip.includes(ugetStripHostname(originurl));
+function isURLBlacklisted(originurl, url) {
+    return !!ugetUrlsToSkip.filter((item) => item === ugetStripHostname(originurl) || item === ugetStripHostname(url))[0];
 }
-function IsURLWhitelisted(url, originurl) {
-    return ugetUrlsToInterrupt.includes(ugetStripHostname(url)) || ugetUrlsToInterrupt.includes(ugetStripHostname(originurl));
+function IsURLWhitelisted(originurl, url) {
+    return !!ugetUrlsToInterrupt.filter((item) => item === ugetStripHostname(originurl) || item === ugetStripHostname(url))[0];
 }
 /** 
  * Check if file extension should be downloaded or not.
@@ -319,15 +237,14 @@ function setInterruptDownload(interrupt, writeToStorage) {
  */
 function sendMessageToHost(ugetMessage) {
     chrome.runtime.sendNativeMessage('com.ugetdm.chrome', ugetMessage, function (response) {
-        //clearMessage();
         ugetIntegratorNotFound = !response;
         if ((!ugetIntegratorNotFound && !ugetIntegratorVersion) || !ugetMessage.URL) {
             ugetIntegratorVersion = response.Version;
             //ugetVersion = response.Uget;
             changeIcon();
         }
-
     });
+    clearMessage();
 }
 /**
  * Return the internal state.
@@ -336,6 +253,28 @@ function ugetState() {
     return (ugetIntegratorNotFound || !ugetIntegratorVersion)
         ? 2 : !ugetIntegratorVersion.startsWith(UGET_REQ_INTEGRATOR_VERSION)
             ? 1 : 0;
+}
+function cookiesGetAll(url) {
+    url = ugetRootURL(url);
+    return url ? chrome.cookies.getAll({ 'url': url }, parseCookies) : parseCookies([]);
+}
+function parseCookies(cookies_arr) {
+    let cookies = '';
+    if (cookies_arr[0]) {
+        for (let i in cookies_arr) {
+            cookies += cookies_arr[i].domain + '\t';
+            cookies += (cookies_arr[i].httpOnly ? "FALSE" : "TRUE") + '\t';
+            cookies += cookies_arr[i].path + '\t';
+            cookies += (cookies_arr[i].secure ? "TRUE" : "FALSE") + '\t';
+            cookies += Math.round(cookies_arr[i].expirationDate) + '\t';
+            cookies += cookies_arr[i].name + '\t';
+            cookies += cookies_arr[i].value;
+            cookies += '\n';
+        }
+    }
+
+    ugetMessage.Cookies = cookies;
+    sendMessageToHost(ugetMessage);
 }
 /**
  * Clear the ugetMessage.
@@ -352,55 +291,6 @@ function clearMessage() {
         UserAgent: navigator.userAgent,
         Version: UGET_EXTENSION_VERSION
     }
-}
-/**
- * Extract the POST parameters from a form data.
-function postParams(source) {
-    let array = [];
-    for (let key in source) {
-        array.push(encodeURIComponent(key) + '=' + encodeURIComponent(source[key]));
-    }
-    return array.join('&');
-} */
-/**
- * Get the file size of given URL.
- * @param {string} url
- */
-// doesn't work with auth basic
-// function ugetFetchPromise(url) {
-//     Promise.all([fetch(url).then(response => response.headers)])
-//         .then(([headResponse]) => {
-//             ugetMessage.FileSize = parseInt(headResponse.get('content-length'));
-//             ugetMessage.FileName = ugetContentDispFilename(headResponse.get('content-disposition'));
-//         }).catch((_error) => {
-//             ugetMessage.FileSize = UgetMinFsToInterrupt;
-//             ugetMessage.FileName = '';
-//         });
-// }
-/**
- * Parse the cookies and send the ugetMessage to the native host.
- */
-function cookiesGetAll(url) {
-    return chrome.cookies.getAll({ 'url': ugetRootURL(url) }, parseCookies);
-}
-function parseCookies(cookies_arr) {
-    let cookies = '';
-    if (cookies_arr) {
-        for (let i in cookies_arr) {
-            cookies += cookies_arr[i].domain + '\t';
-            cookies += (cookies_arr[i].httpOnly ? "FALSE" : "TRUE") + '\t';
-            cookies += cookies_arr[i].path + '\t';
-            cookies += (cookies_arr[i].secure ? "TRUE" : "FALSE") + '\t';
-            cookies += Math.round(cookies_arr[i].expirationDate) + '\t';
-            cookies += cookies_arr[i].name + '\t';
-            cookies += cookies_arr[i].value;
-            cookies += '\n';
-        }
-    }
-
-    ugetMessage.Cookies = cookies;
-    sendMessageToHost(ugetMessage);
-    ugetDeleteListener();
 }
 /**
  * Update the exclude keywords.
@@ -471,70 +361,4 @@ function changeIcon() {
         path: iconPath
     });
 }
-/**
- * Check the TAB URL and enable download_media_with_uget if the page is Youtube
- * @param {*int} tabId
- */
-// function checkForYoutube(tabId, disableIfNot) {
-//     chrome.tabs.get(tabId, function (tab) {
-//         let isYoutube = tab['url'] && tab['url'].includes('/www.youtube.com/watch?v=')
-//         if (isYoutube) {
-//             chrome.contextMenus.update("download_media_with_uget", {
-//                 enabled: true
-//             });
-//         } else if (disableIfNot) {
-//             chrome.contextMenus.update("download_media_with_uget", {
-//                 enabled: false
-//             });
-//         }
-//     });
-// }
-/**
- * Grab videos and add them to ugetMediaInTab.
- */
-// function enableVideoGrabber() {
-//     chrome.tabs.onActivated.addListener(function (activeInfo) {
-//         if (ugetMediaInTab[activeInfo['tabId']] != undefined) {
-//             // Media already detected
-//             chrome.contextMenus.update("download_media_with_uget", {
-//                 enabled: true
-//             });
-//         } else {
-//             // Check for Youtube
-//             checkForYoutube(activeInfo['tabId'], true);
-//         }
-//     });
-//     chrome.tabs.onRemoved.addListener(function (tabId, removeInfo) {
-//         if (ugetMediaInTab[tabId]) {
-//             delete ugetMediaInTab[tabId];
-//         }
-//     });
-//     chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
-//         if (changeInfo['status'] === 'loading') {
-//             // Loading a new page
-//             delete ugetMediaInTab[tabId];
-//         }
-//         // Check for Youtube
-//         checkForYoutube(tabId, false);
-//     });
-//     chrome.webRequest.onResponseStarted.addListener(function (details) {
-//         let content_url = details['url'];
-//         let type = details['type'];
-//         if (type === 'media' || content_url.includes('mp4')) {
-//             let tabId = details['tabId'];
-//             let mediaSet = ugetMediaInTab[tabId];
-//             if (mediaSet == undefined) {
-//                 mediaSet = new Set();
-//                 ugetMediaInTab[tabId] = mediaSet;
-//             }
-//             mediaSet.add(content_url);
-//             chrome.contextMenus.update("download_media_with_uget", {
-//                 enabled: true
-//             });
-//         }
-//     }, {
-//         urls: ['*://*/*'],
-//         types: ['media', 'object']
-//     });
-// }
 start();
