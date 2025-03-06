@@ -50,6 +50,7 @@ var ugetMessage = {
     UserAgent: navigator.userAgent,
     Version: UGET_EXTENSION_VERSION
 };
+
 function start() {
     initialize();
     readStorage();
@@ -155,13 +156,13 @@ function ugetOnHeaderReceived(details) {
         if (!(/^text\/|^image\//i).test(contentType) && !isURLBlacklisted(details.initiator, details.url)) {
             ugetMessage.URL = details.url;
             ugetMessage.FileName = ugetContentDispFilename(ugetFilterRespHeader(details.responseHeaders, 'content-disposition')[0]?.value)
+            // ugetMessage.Referer = details.initiator || details.url;
             let ugetFileExt = ugetStripExtension(ugetMessage.FileName || details.url);
             let contentLength = parseInt(ugetFilterRespHeader(details.responseHeaders, 'content-length')[0]?.value);
             // fix this/find better way -> cdn dl without a content lengh response header 
             ugetMessage.FileSize = contentLength
                 ? contentLength : contentType.includes('application/')
                     ? UgetMinFsToInterrupt + 1024 : 0;
-            ugetMessage.Referer = details.initiator || details.url;
             if (ugetMessage.FileSize >= UgetMinFsToInterrupt) {
                 if (!isContentBlacklisted(ugetFileExt) && (IsURLWhitelisted(details.initiator, details.url) || isContentWhitelisted(ugetFileExt))) {
                     return (cookiesGetAll(details.initiator), { redirectUrl: "javascript:" });
@@ -189,13 +190,14 @@ function ugetContentDispFilename(content) {
 function ugetStripExtension(urlfln) {
     urlfln = urlfln.toLowerCase();
     // // URL
-    if ((/^https?:|^ftp:/i).test(urlfln)) {
+    if ((/^https?:/i).test(urlfln)) {
         urlfln = new URL(urlfln).pathname;
     } // Filename
     return (/\.\w{1,10}$/).test(urlfln)
         ? urlfln.split('.').pop() : (/^(?:application|video|image|audio)\//i).test(urlfln)
             ? urlfln.split(/[;/]/, 2).pop().split('-', 2).pop() : '';
 }
+// String "Null" fixes Edge returning empty initiator as null
 function ugetRootURL(url) {
     return url && url !== "null" ? new URL(url).origin : undefined;
 }
@@ -220,40 +222,6 @@ function isContentBlacklisted(extension) {
 function isContentWhitelisted(extension) {
     return ugetMimeToInterrupt.includes(extension);
 }
-/**
- * Enable/Disable the plugin and update the plugin icon based on the state.
- */
-function setInterruptDownload(interrupt, writeToStorage) {
-    ugetInterruptSwitch = interrupt;
-    if (writeToStorage) {
-        chrome.storage.sync.set({
-            "uget-interrupt": interrupt.toString()
-        });
-    }
-    changeIcon();
-}
-/*
- * Send ugetMessage to uget-integrator
- */
-function sendMessageToHost(ugetMessage) {
-    chrome.runtime.sendNativeMessage('com.ugetdm.chrome', ugetMessage, function (response) {
-        ugetIntegratorNotFound = !response;
-        if ((!ugetIntegratorNotFound && !ugetIntegratorVersion) || !ugetMessage.URL) {
-            ugetIntegratorVersion = response.Version;
-            //ugetVersion = response.Uget;
-            changeIcon();
-        }
-    });
-    clearMessage();
-}
-/**
- * Return the internal state.
- */
-function ugetState() {
-    return (ugetIntegratorNotFound || !ugetIntegratorVersion)
-        ? 2 : !ugetIntegratorVersion.startsWith(UGET_REQ_INTEGRATOR_VERSION)
-            ? 1 : 0;
-}
 function cookiesGetAll(url) {
     url = ugetRootURL(url);
     return url ? chrome.cookies.getAll({ 'url': url }, parseCookies) : parseCookies([]);
@@ -272,9 +240,38 @@ function parseCookies(cookies_arr) {
             cookies += '\n';
         }
     }
-
     ugetMessage.Cookies = cookies;
     sendMessageToHost(ugetMessage);
+    // clearMessage();
+}
+function ugetTabURL() {
+    return new Promise((resolve, reject) => {
+        try {
+            chrome.tabs.query({
+                active: true,
+                highlighted: true
+            }, function (tabs) {
+                resolve(!(/^$|^edge:|^chrome-extension:/).test(tabs[0].url) ? tabs[0].url : tabs[0].pendingUrl);
+            })
+        } catch (e) {
+            reject(e);
+        }
+    })
+}
+/*
+ * Send ugetMessage to uget-integrator
+ */
+async function sendMessageToHost(ugetMessage) {
+    ugetMessage.Referer = ugetMessage.URL ? await ugetTabURL() : '';
+    chrome.runtime.sendNativeMessage('com.ugetdm.chrome', ugetMessage, function (response) {
+        ugetIntegratorNotFound = !response;
+        if ((!ugetIntegratorNotFound && !ugetIntegratorVersion) || !ugetMessage.URL) {
+            ugetIntegratorVersion = response.Version;
+            //ugetVersion = response.Uget;
+            changeIcon();
+        }
+    });
+    clearMessage();
 }
 /**
  * Clear the ugetMessage.
@@ -341,6 +338,26 @@ function updateMinFileSize(size) {
     chrome.storage.sync.set({
         "uget-min-file-size": size
     });
+}
+/**
+ * Return the internal state.
+ */
+function ugetState() {
+    return (ugetIntegratorNotFound || !ugetIntegratorVersion)
+        ? 2 : !ugetIntegratorVersion.startsWith(UGET_REQ_INTEGRATOR_VERSION)
+            ? 1 : 0;
+}
+/**
+ * Enable/Disable the plugin and update the plugin icon based on the state.
+ */
+function setInterruptDownload(interrupt, writeToStorage) {
+    ugetInterruptSwitch = interrupt;
+    if (writeToStorage) {
+        chrome.storage.sync.set({
+            "uget-interrupt": interrupt.toString()
+        });
+    }
+    changeIcon();
 }
 /**
  * Change extension icon based on current state.
