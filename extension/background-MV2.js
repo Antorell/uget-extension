@@ -156,7 +156,6 @@ function ugetOnHeaderReceived(details) {
         if (!(/^text\/|^image\//i).test(contentType) && !isURLBlacklisted(details.initiator, details.url)) {
             ugetMessage.URL = details.url;
             ugetMessage.FileName = ugetContentDispFilename(ugetFilterRespHeader(details.responseHeaders, 'content-disposition')[0]?.value)
-            // ugetMessage.Referer = details.initiator || details.url;
             let ugetFileExt = ugetStripExtension(ugetMessage.FileName || details.url);
             let contentLength = parseInt(ugetFilterRespHeader(details.responseHeaders, 'content-length')[0]?.value);
             // fix this/find better way -> cdn dl without a content lengh response header 
@@ -165,7 +164,7 @@ function ugetOnHeaderReceived(details) {
                     ? UgetMinFsToInterrupt + 1024 : 0;
             if (ugetMessage.FileSize >= UgetMinFsToInterrupt) {
                 if (!isContentBlacklisted(ugetFileExt) && (IsURLWhitelisted(details.initiator, details.url) || isContentWhitelisted(ugetFileExt))) {
-                    return (cookiesGetAll(details.initiator), { redirectUrl: "javascript:" });
+                    return (cookiesGetAll(details.initiator, details.tabId), { redirectUrl: "javascript:" });
                 }
             }
         }
@@ -222,11 +221,11 @@ function isContentBlacklisted(extension) {
 function isContentWhitelisted(extension) {
     return ugetMimeToInterrupt.includes(extension);
 }
-function cookiesGetAll(url) {
+function cookiesGetAll(url, tabId) {
     url = ugetRootURL(url);
-    return url ? chrome.cookies.getAll({ 'url': url }, parseCookies) : parseCookies([]);
+    return url ? chrome.cookies.getAll({ 'url': url }, (result) => { parseCookies(result, tabId) }) : parseCookies([], tabId);
 }
-function parseCookies(cookies_arr) {
+function parseCookies(cookies_arr, tabId) {
     let cookies = '';
     if (cookies_arr[0]) {
         for (let i in cookies_arr) {
@@ -241,18 +240,17 @@ function parseCookies(cookies_arr) {
         }
     }
     ugetMessage.Cookies = cookies;
-    sendMessageToHost(ugetMessage);
-    // clearMessage();
+    sendMessageToHost(ugetMessage, tabId);
 }
-function ugetTabURL() {
+function ugetTabURL(id) {
     return new Promise((resolve, reject) => {
         try {
-            chrome.tabs.query({
-                active: true,
-                highlighted: true
-            }, function (tabs) {
-                resolve(!(/^$|^edge:|^chrome-extension:/).test(tabs[0].url) ? tabs[0].url : tabs[0].pendingUrl);
-            })
+            chrome.tabs.get(
+                id,
+                function (tabs) {
+                    resolve(!(/^$|^edge:|^chrome-extension:/).test(tabs.url) ? tabs.url : tabs.pendingUrl);
+
+                })
         } catch (e) {
             reject(e);
         }
@@ -261,13 +259,12 @@ function ugetTabURL() {
 /*
  * Send ugetMessage to uget-integrator
  */
-async function sendMessageToHost(ugetMessage) {
-    ugetMessage.Referer = ugetMessage.URL ? await ugetTabURL() : '';
+async function sendMessageToHost(ugetMessage, tabId) {
+    ugetMessage.Referer = ugetMessage.URL ? await ugetTabURL(tabId) : '';
     chrome.runtime.sendNativeMessage('com.ugetdm.chrome', ugetMessage, function (response) {
         ugetIntegratorNotFound = !response;
         if ((!ugetIntegratorNotFound && !ugetIntegratorVersion) || !ugetMessage.URL) {
             ugetIntegratorVersion = response.Version;
-            //ugetVersion = response.Uget;
             changeIcon();
         }
     });
