@@ -221,13 +221,14 @@ function isContentBlacklisted(extension) {
 function isContentWhitelisted(extension) {
     return ugetMimeToInterrupt.includes(extension);
 }
-function cookiesGetAll(url, tabId) {
+async function cookiesGetAll(url, tabId) {
     url = ugetRootURL(url);
-    return url ? chrome.cookies.getAll({ 'url': url }, (result) => { parseCookies(result, tabId) }) : parseCookies([], tabId);
+    ugetMessage.Referer = ugetMessage.URL ? await ugetTabURL(tabId) : '';
+    return url ? chrome.cookies.getAll({ 'url': url, 'session': true }, parseCookies) : sendMessageToHost(ugetMessage);
 }
-function parseCookies(cookies_arr, tabId) {
+function parseCookies(cookies_arr) {
     let cookies = '';
-    if (cookies_arr[0]) {
+    if (Array.isArray(cookies_arr) && cookies_arr[0]) {
         for (let i in cookies_arr) {
             cookies += cookies_arr[i].domain + '\t';
             cookies += (cookies_arr[i].httpOnly ? "FALSE" : "TRUE") + '\t';
@@ -240,7 +241,7 @@ function parseCookies(cookies_arr, tabId) {
         }
     }
     ugetMessage.Cookies = cookies;
-    sendMessageToHost(ugetMessage, tabId);
+    sendMessageToHost(ugetMessage);
 }
 function ugetTabURL(id) {
     return new Promise((resolve, reject) => {
@@ -259,8 +260,7 @@ function ugetTabURL(id) {
 /*
  * Send ugetMessage to uget-integrator
  */
-async function sendMessageToHost(ugetMessage, tabId) {
-    ugetMessage.Referer = ugetMessage.URL ? await ugetTabURL(tabId) : '';
+function sendMessageToHost(ugetMessage) {
     chrome.runtime.sendNativeMessage('com.ugetdm.chrome', ugetMessage, function (response) {
         ugetIntegratorNotFound = !response;
         if ((!ugetIntegratorNotFound && !ugetIntegratorVersion) || !ugetMessage.URL) {
