@@ -26,7 +26,7 @@ function extract() {
     let url = '';
 
     for (let i = 0; i < document.links.length; i++) {
-        if ((/^https?:|^ftp:/i).test(document.links[i].protocol) && (/(?=\.\w{1,10}$)(?!\.html?$|\.php$|\.aspx?$)/i).test(document.links[i].pathname)) {
+        if ((/^https?:|^ftp:/i).test(document.links[i].protocol) && (/\.\w{1,10}$/).test(document.links[i].pathname)) {
             url = document.links[i].href;
             // Duplicate check.
             if (urls.indexOf(url) === -1) {
