@@ -20,7 +20,7 @@
 
 $(document).ready(function () {
     // Show the system status
-    chrome.runtime.getBackgroundPage(function (backgroundPage) {
+    browser.runtime.getBackgroundPage(function (backgroundPage) {
         let state = backgroundPage.ugetState();
         if (state === 0) {
             $('#info').css('display', 'block');
@@ -37,7 +37,7 @@ $(document).ready(function () {
         }
     });
 
-    chrome.storage.sync.get(function (items) {
+    browser.storage.sync.get(function (items) {
         $('#urlsToExclude').val(items["uget-urls-exclude"]);
         $('#urlsToInclude').val(items["uget-urls-include"]);
         $('#mimeToExclude').val(items["uget-mime-exclude"]);
@@ -49,43 +49,46 @@ $(document).ready(function () {
     // Set event listeners
     $('#chk_enable').change(function () {
         let enabled = this.checked;
-        chrome.runtime.getBackgroundPage(function (backgroundPage) {
+        browser.runtime.getBackgroundPage(function (backgroundPage) {
             backgroundPage.setInterruptDownload(enabled, true);
         });
     });
     $("#fileSize").on("change paste", function () {
+        // let minFileSize = isNaN(parseInt($(this).val())) ? 300 : parseInt($(this).val()) < -1
+        //     ? -1 : parseInt($(this).val());
         let minFileSize = parseInt($(this).val());
+
         if (isNaN(minFileSize)) {
             minFileSize = 300;
         } else if (minFileSize < -1) {
             minFileSize = -1;
         }
         $('#fileSize').val(minFileSize);
-        chrome.runtime.getBackgroundPage(function (backgroundPage) {
+        browser.runtime.getBackgroundPage(function (backgroundPage) {
             backgroundPage.updateMinFileSize(minFileSize * 1024);
         });
     });
     $("#urlsToExclude").on("change paste", function () {
         let keywords = $(this).val().trim().replace(/[\s,]+/g, ', ');
-        chrome.runtime.getBackgroundPage(function (backgroundPage) {
+        browser.runtime.getBackgroundPage(function (backgroundPage) {
             backgroundPage.updateExcludeUrls(keywords);
         });
     });
     $("#urlsToInclude").on("change paste", function () {
         let keywords = $(this).val().trim().replace(/[\s,]+/g, ', ');
-        chrome.runtime.getBackgroundPage(function (backgroundPage) {
+        browser.runtime.getBackgroundPage(function (backgroundPage) {
             backgroundPage.updateIncludeUrls(keywords);
         });
     });
     $("#mimeToExclude").on("change paste", function () {
         let keywords = $(this).val().trim().replace(/[\s,]+/g, ', ');
-        chrome.runtime.getBackgroundPage(function (backgroundPage) {
+        browser.runtime.getBackgroundPage(function (backgroundPage) {
             backgroundPage.updateExcludeMIMEs(keywords);
         });
     });
     $("#mimeToInclude").on("change paste", function () {
         let keywords = $(this).val().trim().replace(/[\s,]+/g, ', ');
-        chrome.runtime.getBackgroundPage(function (backgroundPage) {
+        browser.runtime.getBackgroundPage(function (backgroundPage) {
             backgroundPage.updateIncludeMIMEs(keywords);
         });
     });
