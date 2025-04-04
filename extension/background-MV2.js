@@ -117,7 +117,7 @@ function createContextMenus() {
         "use strict";
         if (info.menuItemId === "download_with_uget") {
             ugetMessage.URL = info.linkUrl;
-            ugetMessage.Referer = info.pageUrl;
+            ugetMessage.Referer = tab.url ?? info.pageUrl;
             cookiesGetAll(info.pageUrl);
         } else if (info.menuItemId === "download_all_links_with_uget") {
             chrome.tabs.executeScript(null, {
@@ -125,7 +125,7 @@ function createContextMenus() {
             }, function (results) {
                 if (results[0].success) {
                     ugetMessage.URL = results[0].urls;
-                    ugetMessage.Referer = info.pageUrl;
+                    ugetMessage.Referer = tab.url ?? info.pageUrl;
                     ugetMessage.Batch = true;
                     cookiesGetAll(info.pageUrl);
                 }
@@ -223,7 +223,7 @@ function isContentWhitelisted(extension) {
 }
 async function cookiesGetAll(url, tabId) {
     url = ugetRootURL(url);
-    ugetMessage.Referer = ugetMessage.URL ? await ugetTabURL(tabId) : '';
+    ugetMessage.Referer = tabId && ugetMessage.URL ? await ugetTabURL(tabId) : ugetMessage.Referer;
     return url ? chrome.cookies.getAll({ 'url': url, 'session': true }, parseCookies) : sendMessageToHost(ugetMessage);
 }
 function parseCookies(cookies_arr) {
